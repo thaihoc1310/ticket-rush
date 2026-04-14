@@ -12,10 +12,10 @@ todos:
     content: "Phase 3 -- Seating Map and Booking Flow: Build the customer-facing interactive seating map (react-konva), implement two-layer seat locking (Redis distributed lock + PostgreSQL FOR UPDATE NOWAIT), Redis Pub/Sub-based WebSocket broadcast for multi-instance support, booking creation, Payment model and simulated payment flow, checkout page with 10-min countdown, QR code ticket generation (qrcode Python), and APScheduler periodic sweep for expired seat release."
     status: pending
   - id: phase-4
-    content: "Phase 4 -- Virtual Queue System: Implement fully Redis-backed virtual queue (sorted sets, no DB table, JWT access tokens), queue join/status API, WebSocket notifications for batch grants (via Redis Pub/Sub), Waiting Room UI page with position display, dual-signal auto-activation (active users SET + request rate counter), APScheduler jobs for queue grant and activation check, and Depends(validate_queue_token) on seat lock endpoint."
+    content: "Phase 4 --  Admin Dashboard, Analytics, and Polish: Build real-time admin dashboard with revenue charts (Recharts), seat occupancy visualization, audience demographics (age/gender), responsive design pass across all pages, input validation refinement (Pydantic validators + frontend), error handling, loading states, seed data, and  testing."
     status: pending
   - id: phase-5
-    content: "Phase 5 -- Admin Dashboard, Analytics, and Polish: Build real-time admin dashboard with revenue charts (Recharts), seat occupancy visualization, audience demographics (age/gender), responsive design pass across all pages, input validation refinement (Pydantic validators + frontend), error handling, loading states, seed data, and final testing."
+    content: "Phase 5 -- Virtual Queue System: Implement fully Redis-backed virtual queue (sorted sets, no DB table, JWT access tokens), queue join/status API, WebSocket notifications for batch grants (via Redis Pub/Sub), Waiting Room UI page with position display, dual-signal auto-activation (active users SET + request rate counter), APScheduler jobs for queue grant and activation check, and Depends(validate_queue_token) on seat lock endpoint."
     status: pending
 isProject: false
 ---
@@ -65,10 +65,11 @@ isProject: false
 
 ```
 ticket-rush/
-├── docker-compose.yml
 ├── README.md
-│
-├── client/                              # React SPA (TypeScript)
+├── ops/
+│   ├── docker/...
+│   ├── k8s/...
+├── frontend/                              # React SPA (TypeScript)
 │   ├── package.json
 │   ├── vite.config.ts
 │   ├── public/
@@ -90,7 +91,7 @@ ticket-rush/
 │       ├── types/                       # TypeScript interfaces matching Pydantic schemas
 │       └── utils/                       # formatters, validators, constants
 │
-├── server/                              # FastAPI Backend (Python)
+├── backend/                              # FastAPI Backend (Python)
 │   ├── pyproject.toml                   # Dependencies (uv / pip)
 │   ├── alembic.ini
 │   ├── alembic/
