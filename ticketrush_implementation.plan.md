@@ -12,7 +12,7 @@ todos:
     content: "Phase 3 -- Seating Map and Booking Flow: Build the customer-facing interactive seating map (react-konva), implement two-layer seat locking (Redis distributed lock + PostgreSQL FOR UPDATE NOWAIT), Redis Pub/Sub-based WebSocket broadcast for multi-instance support, booking creation, Payment model and simulated payment flow, checkout page with 10-min countdown, QR code ticket generation (qrcode Python), and APScheduler periodic sweep for expired seat release."
     status: pending
   - id: phase-4
-    content: "Phase 4 --  Admin Dashboard, Analytics, and Polish: Build real-time admin dashboard with revenue charts (Recharts), seat occupancy visualization, audience demographics (age/gender), responsive design pass across all pages, input validation refinement (Pydantic validators + frontend), error handling, loading states, seed data, and  testing."
+    content: "Phase 4 --  Admin Dashboard, Analytics, and Polish: Build real-time admin dashboard with revenue charts (Recharts), seat occupancy visualization, audience demographics (age/gender), responsive design pass across all pages, input validation refinement (Pydantic validators + frontend), error handling, loading states, seed data,...."
     status: pending
   - id: phase-5
     content: "Phase 5 -- Virtual Queue System: Implement fully Redis-backed virtual queue (sorted sets, no DB table, JWT access tokens), queue join/status API, WebSocket notifications for batch grants (via Redis Pub/Sub), Waiting Room UI page with position display, dual-signal auto-activation (active users SET + request rate counter), APScheduler jobs for queue grant and activation check, and Depends(validate_queue_token) on seat lock endpoint."
@@ -158,7 +158,7 @@ ticket-rush/
 │           └── enums.py                 # SeatStatus, BookingStatus, etc.
 ```
 
-**Key architectural pattern**: Router (thin) -> Service (business logic) -> Model/DB (data access). This 3-layer separation satisfies the "separation of UI and Business Logic" and "design patterns" criteria.The code architecture above is just a demo; it may not include all the  files.
+**Key architectural pattern**: Router (thin) -> Service (business logic) -> Model/DB (data access). This 3-layer separation satisfies the "separation of UI and Business Logic" and "design patterns" criteria.The code architecture above is just a demo; it may incorrect and may not include all the files.
 
 ### 2.2 System Overview Diagram
 
