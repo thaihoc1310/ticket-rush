@@ -165,29 +165,29 @@ export function SeatSelectionPage() {
         <button
           type="button"
           onClick={() => navigate(`/events/${eventId}`)}
-          className="text-sm text-indigo-600 hover:text-indigo-500"
+          className="text-sm text-rose-400 hover:text-rose-300"
         >
           ← Back to event
         </button>
-        <h1 className="mt-1 text-2xl font-semibold text-slate-900">
+        <h1 className="mt-1 text-2xl font-semibold text-gray-100">
           {event ? event.title : "Pick your seats"}
         </h1>
         {event && (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-gray-500">
             {formatDateTime(event.event_date)} · {event.venue.name}
           </p>
         )}
       </header>
 
       {loading ? (
-        <p className="text-sm text-slate-500">Loading seats…</p>
+        <p className="text-sm text-gray-500">Loading seats…</p>
       ) : seatsArray.length === 0 || !event ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-500">
+        <div className="rounded-2xl border border-dashed border-gray-700 bg-gray-900 p-10 text-center text-gray-500">
           No seats configured for this event yet.
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
-          <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+          <section className="rounded-2xl border border-gray-800 bg-gray-900 p-3 shadow-sm">
             <SeatCanvas
               seats={seatsArray}
               rows={event.grid_rows}
@@ -201,46 +201,46 @@ export function SeatSelectionPage() {
             <CustomerLegend zones={zonesInUse} />
           </section>
 
-          <aside className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <aside className="flex flex-col gap-4 rounded-2xl border border-gray-800 bg-gray-900 p-5 shadow-sm">
             <div>
-              <h2 className="text-base font-semibold text-slate-900">
+              <h2 className="text-base font-semibold text-gray-100">
                 Your selection
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-gray-500">
                 Seats are held for 10 minutes while you check out.
               </p>
             </div>
             {selected.length === 0 ? (
-              <p className="text-sm text-slate-500">Tap a seat to select it.</p>
+              <p className="text-sm text-gray-500">Tap a seat to select it.</p>
             ) : (
               <ul className="flex flex-col gap-2 text-sm">
                 {selected.map((s) => (
                   <li
                     key={s.id}
-                    className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2"
+                    className="flex items-center justify-between rounded-lg border border-gray-800 px-3 py-2"
                   >
                     <span className="flex items-center gap-2">
                       <span
                         className="h-3 w-3 rounded-full"
-                        style={{ backgroundColor: s.zone_color ?? "#cbd5e1" }}
+                        style={{ backgroundColor: s.zone_color ?? "#4b5563" }}
                       />
                       {s.zone_name} · R{s.row_number} S{s.seat_number}
                     </span>
-                    <span className="font-semibold text-slate-900">
+                    <span className="font-semibold text-gray-100">
                       {formatCurrency(s.price ?? "0")}
                     </span>
                   </li>
                 ))}
               </ul>
             )}
-            <div className="flex items-center justify-between border-t border-slate-200 pt-4 text-sm">
-              <span className="text-slate-500">Total</span>
-              <span className="text-lg font-semibold text-slate-900">
+            <div className="flex items-center justify-between border-t border-gray-800 pt-4 text-sm">
+              <span className="text-gray-500">Total</span>
+              <span className="text-lg font-semibold text-gray-100">
                 {formatCurrency(total)}
               </span>
             </div>
             {error && (
-              <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+              <p className="rounded-md bg-red-950 px-3 py-2 text-sm text-red-400">
                 {error}
               </p>
             )}
@@ -260,12 +260,12 @@ export function SeatSelectionPage() {
 
 function CustomerLegend({ zones }: { zones: Zone[] }) {
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-600">
-      <LegendSwatch color="#e2e8f0" label="Unassigned" />
+    <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-gray-400">
+      <LegendSwatch color="#374151" label="Unassigned" />
       <LegendSwatch color="#f59e0b" label="Your pick" />
       <LegendSwatch color="#94a3b8" label="Held" />
       <LegendSwatch color="#ef4444" label="Sold" />
-      <span className="mx-2 h-3 w-px bg-slate-200" />
+      <span className="mx-2 h-3 w-px bg-gray-700" />
       {zones.map((z) => (
         <LegendSwatch
           key={z.id}

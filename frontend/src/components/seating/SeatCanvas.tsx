@@ -17,12 +17,12 @@ const MAX_SCALE = 3;
 const ZOOM_STEP = 1.15;
 
 export const SEAT_COLORS = {
-  unassigned: "#e2e8f0",
+  unassigned: "#374151",
   available: "#22c55e",
   locked: "#94a3b8",
   mine: "#f59e0b",
   sold: "#ef4444",
-  selected: "#6366f1",
+  selected: "#f43f5e",
 } as const;
 
 export type SeatVisual =
@@ -247,7 +247,7 @@ export function SeatCanvas({
   };
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+    <div className="relative overflow-hidden rounded-xl border border-gray-800 bg-gray-900">
       <Stage
         width={width}
         height={height}
@@ -271,7 +271,7 @@ export function SeatCanvas({
             y={0}
             width={boardWidth}
             height={boardHeight}
-            fill="#ffffff"
+            fill="#111827"
           />
           <StageElement width={boardWidth} />
           <RowLabels rows={rows} />
@@ -290,7 +290,7 @@ export function SeatCanvas({
               y={STAGE_HEIGHT + STAGE_MARGIN_BOTTOM + 12}
               text="No seats yet."
               fontSize={14}
-              fill="#94a3b8"
+              fill="#6b7280"
             />
           )}
           {marquee && (
@@ -299,8 +299,8 @@ export function SeatCanvas({
               y={Math.min(marquee.y0, marquee.y1)}
               width={Math.abs(marquee.x1 - marquee.x0)}
               height={Math.abs(marquee.y1 - marquee.y0)}
-              fill="rgba(99,102,241,0.15)"
-              stroke="#6366f1"
+              fill="rgba(244,63,94,0.15)"
+              stroke="#f43f5e"
               strokeWidth={1}
               dash={[4, 4]}
               listening={false}
@@ -311,11 +311,11 @@ export function SeatCanvas({
 
       {/* Floating controls */}
       <div className="pointer-events-none absolute right-3 top-3 flex flex-col gap-2">
-        <div className="pointer-events-auto flex overflow-hidden rounded-md border border-slate-300 bg-white shadow-sm">
+        <div className="pointer-events-auto flex overflow-hidden rounded-md border border-gray-700 bg-gray-800 shadow-sm">
           <button
             type="button"
             onClick={() => zoomAt(ZOOM_STEP)}
-            className="px-2.5 py-1 text-sm text-slate-700 hover:bg-slate-100"
+            className="px-2.5 py-1 text-sm text-gray-300 hover:bg-gray-700"
             aria-label="Zoom in"
           >
             +
@@ -323,7 +323,7 @@ export function SeatCanvas({
           <button
             type="button"
             onClick={() => zoomAt(1 / ZOOM_STEP)}
-            className="border-l border-slate-200 px-2.5 py-1 text-sm text-slate-700 hover:bg-slate-100"
+            className="border-l border-gray-700 px-2.5 py-1 text-sm text-gray-300 hover:bg-gray-700"
             aria-label="Zoom out"
           >
             −
@@ -331,17 +331,17 @@ export function SeatCanvas({
           <button
             type="button"
             onClick={resetView}
-            className="border-l border-slate-200 px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-100"
+            className="border-l border-gray-700 px-2.5 py-1 text-xs text-gray-300 hover:bg-gray-700"
           >
             Fit
           </button>
         </div>
-        <div className="pointer-events-auto rounded-md border border-slate-200 bg-white px-2 py-1 text-center text-[10px] uppercase tracking-wider text-slate-500 shadow-sm">
+        <div className="pointer-events-auto rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-center text-[10px] uppercase tracking-wider text-gray-400 shadow-sm">
           {Math.round(scale * 100)}%
         </div>
       </div>
 
-      <div className="pointer-events-none absolute bottom-3 left-3 rounded-md bg-black/50 px-2 py-1 text-[11px] text-white">
+      <div className="pointer-events-none absolute bottom-3 left-3 rounded-md bg-black/60 px-2 py-1 text-[11px] text-white">
         Drag to pan · Scroll to zoom{onMarqueeSelect ? " · Drag empty area to box-select" : ""}
       </div>
     </div>
@@ -370,7 +370,7 @@ function StageElement({ width }: { width: number }) {
       <Rect
         width={stageWidth}
         height={STAGE_HEIGHT}
-        fill="#0f172a"
+        fill="#1f2937"
         cornerRadius={[12, 12, 40, 40]}
       />
       <Text
@@ -384,7 +384,7 @@ function StageElement({ width }: { width: number }) {
         fontSize={16}
         fontStyle="bold"
         letterSpacing={4}
-        fill="#f8fafc"
+        fill="#9ca3af"
       />
     </Group>
   );
@@ -414,7 +414,7 @@ function RowLabels({ rows }: { rows: number }) {
           text={l.text}
           fontSize={12}
           fontStyle="bold"
-          fill="#475569"
+          fill="#9ca3af"
         />
       ))}
     </>
@@ -434,7 +434,7 @@ function SeatNode({ seat, visual, color, onClick }: SeatNodeProps) {
     visual === "available" && color ? color : SEAT_COLORS[visual];
   const opacity = visual === "unassigned" ? 0.7 : 1;
   const stroke =
-    visual === "mine" || visual === "selected" ? "#0f172a" : "transparent";
+    visual === "mine" || visual === "selected" ? "#f8fafc" : "transparent";
   return (
     <Rect
       x={x}

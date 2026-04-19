@@ -46,14 +46,14 @@ export function VenuesPage() {
   return (
     <div className="flex flex-col gap-6">
       <header>
-        <h1 className="text-2xl font-semibold text-slate-900">Venues</h1>
-        <p className="text-sm text-slate-500">
+        <h1 className="text-2xl font-semibold text-gray-100">Venues</h1>
+        <p className="text-sm text-gray-500">
           Create and manage venues where events take place.
         </p>
       </header>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-base font-semibold text-slate-900">New venue</h2>
+      <section className="rounded-2xl border border-gray-800 bg-gray-900 p-6 shadow-sm">
+        <h2 className="text-base font-semibold text-gray-100">New venue</h2>
         <form onSubmit={onSubmit} className="mt-4 grid gap-4 sm:grid-cols-2">
           <Input
             label="Name"
@@ -88,22 +88,22 @@ export function VenuesPage() {
             </Button>
           </div>
           {error && (
-            <p className="sm:col-span-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p className="sm:col-span-2 rounded-md bg-red-950 px-3 py-2 text-sm text-red-400">
               {error}
             </p>
           )}
         </form>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 px-6 py-4">
-          <h2 className="text-base font-semibold text-slate-900">All venues</h2>
+      <section className="rounded-2xl border border-gray-800 bg-gray-900 shadow-sm">
+        <div className="border-b border-gray-800 px-6 py-4">
+          <h2 className="text-base font-semibold text-gray-100">All venues</h2>
         </div>
         {isLoading ? (
-          <p className="px-6 py-6 text-sm text-slate-500">Loading…</p>
+          <p className="px-6 py-6 text-sm text-gray-500">Loading…</p>
         ) : data && data.length ? (
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+            <thead className="bg-gray-800 text-xs uppercase tracking-wider text-gray-500">
               <tr>
                 <th className="px-6 py-3">Name</th>
                 <th className="px-6 py-3">City</th>
@@ -111,12 +111,12 @@ export function VenuesPage() {
                 <th className="px-6 py-3" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-gray-800">
               {data.map((v) => (
                 <tr key={v.id}>
-                  <td className="px-6 py-3 font-medium text-slate-900">{v.name}</td>
-                  <td className="px-6 py-3 text-slate-600">{v.city}</td>
-                  <td className="px-6 py-3 text-slate-600">{v.capacity}</td>
+                  <td className="px-6 py-3 font-medium text-gray-100">{v.name}</td>
+                  <td className="px-6 py-3 text-gray-400">{v.city}</td>
+                  <td className="px-6 py-3 text-gray-400">{v.capacity}</td>
                   <td className="px-6 py-3 text-right">
                     <Button
                       variant="ghost"
@@ -132,7 +132,7 @@ export function VenuesPage() {
             </tbody>
           </table>
         ) : (
-          <p className="px-6 py-6 text-sm text-slate-500">No venues yet.</p>
+          <p className="px-6 py-6 text-sm text-gray-500">No venues yet.</p>
         )}
       </section>
     </div>

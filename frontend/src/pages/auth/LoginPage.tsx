@@ -38,10 +38,10 @@ export function LoginPage() {
   };
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-6 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+    <div className="mx-auto flex max-w-md flex-col gap-6 rounded-2xl border border-gray-800 bg-gray-900 p-8 shadow-sm">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Welcome back</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <h1 className="text-2xl font-semibold text-gray-100">Welcome back</h1>
+        <p className="mt-1 text-sm text-gray-400">
           Log in to book tickets and manage your reservations.
         </p>
       </div>
@@ -66,15 +66,15 @@ export function LoginPage() {
           onChange={(e) => setPassword(e.target.value)}
         />
         {error ? (
-          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+          <p className="rounded-md bg-red-950 px-3 py-2 text-sm text-red-400">{error}</p>
         ) : null}
         <Button type="submit" loading={submitting}>
           Log in
         </Button>
       </form>
-      <p className="text-center text-sm text-slate-500">
+      <p className="text-center text-sm text-gray-500">
         No account?{" "}
-        <Link to="/register" className="font-medium text-indigo-600 hover:text-indigo-500">
+        <Link to="/register" className="font-medium text-rose-400 hover:text-rose-300">
           Create one
         </Link>
       </p>

@@ -101,16 +101,16 @@ export function EventsPage() {
   return (
     <div className="flex flex-col gap-6">
       <header>
-        <h1 className="text-2xl font-semibold text-slate-900">Events</h1>
-        <p className="text-sm text-slate-500">
+        <h1 className="text-2xl font-semibold text-gray-100">Events</h1>
+        <p className="text-sm text-gray-500">
           Create events, toggle status, and configure seat zones.
         </p>
       </header>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-base font-semibold text-slate-900">New event</h2>
+      <section className="rounded-2xl border border-gray-800 bg-gray-900 p-6 shadow-sm">
+        <h2 className="text-base font-semibold text-gray-100">New event</h2>
         {venues.length === 0 ? (
-          <p className="mt-3 text-sm text-amber-700">
+          <p className="mt-3 text-sm text-amber-400">
             Create a venue first on the{" "}
             <Link to="/admin/venues" className="underline">
               Venues page
@@ -126,12 +126,12 @@ export function EventsPage() {
               onChange={(e) => setForm({ ...form, title: e.target.value })}
             />
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-slate-700">Venue</label>
+              <label className="text-sm font-medium text-gray-300">Venue</label>
               <select
                 required
                 value={form.venue_id}
                 onChange={(e) => setForm({ ...form, venue_id: e.target.value })}
-                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none"
+                className="rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 shadow-sm focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus:outline-none"
               >
                 <option value="">Select a venue…</option>
                 {venues.map((v) => (
@@ -160,13 +160,13 @@ export function EventsPage() {
               onChange={(e) => setForm({ ...form, banner_url: e.target.value })}
             />
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-slate-700">Status</label>
+              <label className="text-sm font-medium text-gray-300">Status</label>
               <select
                 value={form.status}
                 onChange={(e) =>
                   setForm({ ...form, status: e.target.value as EventStatus })
                 }
-                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none"
+                className="rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 shadow-sm focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus:outline-none"
               >
                 {STATUSES.map((s) => (
                   <option key={s} value={s}>
@@ -198,22 +198,22 @@ export function EventsPage() {
               }
             />
             <div className="sm:col-span-2 flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-slate-700">
+              <label className="text-sm font-medium text-gray-300">
                 Description
               </label>
               <textarea
                 rows={3}
                 value={form.description ?? ""}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
-                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none"
+                className="rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 shadow-sm focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus:outline-none"
               />
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-gray-500">
                 Grid generates {form.grid_rows}×{form.grid_cols} = {form.grid_rows * form.grid_cols} seats.
                 Assign zones on the Seats page.
               </p>
             </div>
             {error && (
-              <p className="sm:col-span-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+              <p className="sm:col-span-2 rounded-md bg-red-950 px-3 py-2 text-sm text-red-400">
                 {error}
               </p>
             )}
@@ -226,15 +226,15 @@ export function EventsPage() {
         )}
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 px-6 py-4">
-          <h2 className="text-base font-semibold text-slate-900">All events</h2>
+      <section className="rounded-2xl border border-gray-800 bg-gray-900 shadow-sm">
+        <div className="border-b border-gray-800 px-6 py-4">
+          <h2 className="text-base font-semibold text-gray-100">All events</h2>
         </div>
         {eventsQ.isLoading ? (
-          <p className="px-6 py-6 text-sm text-slate-500">Loading…</p>
+          <p className="px-6 py-6 text-sm text-gray-500">Loading…</p>
         ) : events.length ? (
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+            <thead className="bg-gray-800 text-xs uppercase tracking-wider text-gray-500">
               <tr>
                 <th className="px-6 py-3">Title</th>
                 <th className="px-6 py-3">Venue</th>
@@ -243,14 +243,14 @@ export function EventsPage() {
                 <th className="px-6 py-3" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-gray-800">
               {events.map((e) => (
                 <tr key={e.id}>
-                  <td className="px-6 py-3 font-medium text-slate-900">{e.title}</td>
-                  <td className="px-6 py-3 text-slate-600">
+                  <td className="px-6 py-3 font-medium text-gray-100">{e.title}</td>
+                  <td className="px-6 py-3 text-gray-400">
                     {e.venue.name} · {e.venue.city}
                   </td>
-                  <td className="px-6 py-3 text-slate-600">
+                  <td className="px-6 py-3 text-gray-400">
                     {formatDateTime(e.event_date)}
                   </td>
                   <td className="px-6 py-3">
@@ -262,7 +262,7 @@ export function EventsPage() {
                           status: ev.target.value as EventStatus,
                         })
                       }
-                      className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
+                      className="rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-100"
                     >
                       {STATUSES.map((s) => (
                         <option key={s} value={s}>
@@ -274,7 +274,7 @@ export function EventsPage() {
                   <td className="px-6 py-3 text-right">
                     <Link
                       to={`/admin/events/${e.id}/seats`}
-                      className="mr-3 text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                      className="mr-3 text-sm font-medium text-rose-400 hover:text-rose-300"
                     >
                       Seats
                     </Link>
@@ -292,7 +292,7 @@ export function EventsPage() {
             </tbody>
           </table>
         ) : (
-          <p className="px-6 py-6 text-sm text-slate-500">No events yet.</p>
+          <p className="px-6 py-6 text-sm text-gray-500">No events yet.</p>
         )}
       </section>
     </div>

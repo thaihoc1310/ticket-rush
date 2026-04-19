@@ -42,10 +42,10 @@ export function RegisterPage() {
   };
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-6 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+    <div className="mx-auto flex max-w-md flex-col gap-6 rounded-2xl border border-gray-800 bg-gray-900 p-8 shadow-sm">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Create your account</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <h1 className="text-2xl font-semibold text-gray-100">Create your account</h1>
+        <p className="mt-1 text-sm text-gray-400">
           Sign up to reserve seats at your next event.
         </p>
       </div>
@@ -85,7 +85,7 @@ export function RegisterPage() {
             onChange={(e) => setDob(e.target.value)}
           />
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="gender" className="text-sm font-medium text-slate-700">
+            <label htmlFor="gender" className="text-sm font-medium text-gray-300">
               Gender
             </label>
             <select
@@ -93,7 +93,7 @@ export function RegisterPage() {
               name="gender"
               value={gender}
               onChange={(e) => setGender(e.target.value as Gender | "")}
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+              className="rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 shadow-sm outline-none transition focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
             >
               <option value="">Prefer not to say</option>
               <option value="MALE">Male</option>
@@ -103,15 +103,15 @@ export function RegisterPage() {
           </div>
         </div>
         {error ? (
-          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+          <p className="rounded-md bg-red-950 px-3 py-2 text-sm text-red-400">{error}</p>
         ) : null}
         <Button type="submit" loading={submitting}>
           Create account
         </Button>
       </form>
-      <p className="text-center text-sm text-slate-500">
+      <p className="text-center text-sm text-gray-500">
         Already have an account?{" "}
-        <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
+        <Link to="/login" className="font-medium text-rose-400 hover:text-rose-300">
           Log in
         </Link>
       </p>
