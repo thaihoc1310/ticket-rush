@@ -1,6 +1,7 @@
 from app.models.base import Base
 from app.models.booking import Booking, BookingItem
 from app.models.event import Event
+from app.models.event_image import EventImage
 from app.models.payment import Payment
 from app.models.seat import Seat
 from app.models.ticket import Ticket
@@ -13,6 +14,7 @@ __all__ = [
     "Booking",
     "BookingItem",
     "Event",
+    "EventImage",
     "Payment",
     "Seat",
     "Ticket",

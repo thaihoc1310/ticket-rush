@@ -27,7 +27,7 @@ class EventService:
         limit: int = 50,
         offset: int = 0,
     ) -> list[Event]:
-        stmt = select(Event).options(selectinload(Event.venue))
+        stmt = select(Event).options(selectinload(Event.venue), selectinload(Event.images))
 
         if search:
             like = f"%{search.lower()}%"
@@ -52,7 +52,7 @@ class EventService:
         stmt = (
             select(Event)
             .where(Event.id == event_id)
-            .options(selectinload(Event.venue))
+            .options(selectinload(Event.venue), selectinload(Event.images))
         )
         result = await self.db.execute(stmt)
         event = result.scalar_one_or_none()

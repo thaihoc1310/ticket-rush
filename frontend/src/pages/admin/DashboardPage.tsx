@@ -71,17 +71,30 @@ export function DashboardPage() {
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-100">Dashboard</h1>
-          <p className="text-sm text-gray-500">
+          <h1
+            className="text-2xl font-semibold"
+            style={{ color: "var(--text-primary)" }}
+          >
+            Dashboard
+          </h1>
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
             Real-time overview. Refreshes every 15–60 seconds.
           </p>
         </div>
-        <label className="flex items-center gap-2 text-sm text-gray-400">
+        <label
+          className="flex items-center gap-2 text-sm"
+          style={{ color: "var(--text-secondary)" }}
+        >
           Range:
           <select
             value={days}
             onChange={(e) => setDays(Number(e.target.value))}
-            className="rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-gray-100"
+            className="rounded-md border px-2 py-1 text-sm"
+            style={{
+              borderColor: "var(--border-primary)",
+              background: "var(--bg-tertiary)",
+              color: "var(--text-primary)",
+            }}
           >
             <option value={7}>Last 7 days</option>
             <option value={14}>Last 14 days</option>
@@ -124,10 +137,21 @@ export function DashboardPage() {
         />
       </section>
 
-      <section className="rounded-2xl border border-gray-800 bg-gray-900 p-5 shadow-sm">
+      <section
+        className="rounded-2xl border p-5 shadow-sm"
+        style={{
+          borderColor: "var(--border-primary)",
+          background: "var(--bg-secondary)",
+        }}
+      >
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-gray-100">Revenue</h2>
-          <span className="text-xs text-gray-500">
+          <h2
+            className="text-base font-semibold"
+            style={{ color: "var(--text-primary)" }}
+          >
+            Revenue
+          </h2>
+          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
             {revenueQ.isFetching ? "updating…" : `${days}-day view`}
           </span>
         </div>
@@ -167,8 +191,17 @@ export function DashboardPage() {
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <section className="rounded-2xl border border-gray-800 bg-gray-900 p-5 shadow-sm">
-          <h2 className="text-base font-semibold text-gray-100">
+        <section
+          className="rounded-2xl border p-5 shadow-sm"
+          style={{
+            borderColor: "var(--border-primary)",
+            background: "var(--bg-secondary)",
+          }}
+        >
+          <h2
+            className="text-base font-semibold"
+            style={{ color: "var(--text-primary)" }}
+          >
             Audience · Age
           </h2>
           {ageData.length === 0 ? (
@@ -196,8 +229,17 @@ export function DashboardPage() {
           )}
         </section>
 
-        <section className="rounded-2xl border border-gray-800 bg-gray-900 p-5 shadow-sm">
-          <h2 className="text-base font-semibold text-gray-100">
+        <section
+          className="rounded-2xl border p-5 shadow-sm"
+          style={{
+            borderColor: "var(--border-primary)",
+            background: "var(--bg-secondary)",
+          }}
+        >
+          <h2
+            className="text-base font-semibold"
+            style={{ color: "var(--text-primary)" }}
+          >
             Audience · Gender
           </h2>
           {genderData.length === 0 ? (
@@ -257,17 +299,33 @@ function TopEventsAndOccupancy() {
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
-      <section className="rounded-2xl border border-gray-800 bg-gray-900 p-5 shadow-sm">
-        <h2 className="text-base font-semibold text-gray-100">
+      <section
+        className="rounded-2xl border p-5 shadow-sm"
+        style={{
+          borderColor: "var(--border-primary)",
+          background: "var(--bg-secondary)",
+        }}
+      >
+        <h2
+          className="text-base font-semibold"
+          style={{ color: "var(--text-primary)" }}
+        >
           Top events by tickets sold
         </h2>
         {topQ.isLoading ? (
-          <p className="mt-3 text-sm text-gray-500">Loading…</p>
+          <p className="mt-3 text-sm" style={{ color: "var(--text-muted)" }}>
+            Loading…
+          </p>
         ) : top.length === 0 ? (
-          <p className="mt-3 text-sm text-gray-500">No confirmed bookings yet.</p>
+          <p className="mt-3 text-sm" style={{ color: "var(--text-muted)" }}>
+            No confirmed bookings yet.
+          </p>
         ) : (
           <table className="mt-3 w-full text-left text-sm">
-            <thead className="text-xs uppercase tracking-wider text-gray-500">
+            <thead
+              className="text-xs uppercase tracking-wider"
+              style={{ color: "var(--text-muted)" }}
+            >
               <tr>
                 <th className="px-2 py-2">Event</th>
                 <th className="px-2 py-2 text-right">Tickets</th>
@@ -275,33 +333,49 @@ function TopEventsAndOccupancy() {
                 <th className="px-2 py-2" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-800">
+            <tbody>
               {top.map((e) => (
                 <tr
                   key={e.event_id}
-                  className={
-                    eventId === e.event_id ? "bg-rose-500/10" : undefined
-                  }
+                  className="border-t"
+                  style={{
+                    borderColor: "var(--border-primary)",
+                    background:
+                      eventId === e.event_id
+                        ? "var(--accent-subtle)"
+                        : undefined,
+                  }}
                 >
-                  <td className="px-2 py-2 font-medium text-gray-100">
+                  <td
+                    className="px-2 py-2 font-medium"
+                    style={{ color: "var(--text-primary)" }}
+                  >
                     <Link
                       to={`/admin/events`}
-                      className="hover:text-rose-400"
+                      className="hover:opacity-80"
+                      style={{ color: "var(--text-primary)" }}
                     >
                       {e.title}
                     </Link>
                   </td>
-                  <td className="px-2 py-2 text-right text-gray-300">
+                  <td
+                    className="px-2 py-2 text-right"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
                     {e.tickets}
                   </td>
-                  <td className="px-2 py-2 text-right font-semibold text-gray-100">
+                  <td
+                    className="px-2 py-2 text-right font-semibold"
+                    style={{ color: "var(--text-primary)" }}
+                  >
                     {formatCurrency(e.revenue)}
                   </td>
                   <td className="px-2 py-2 text-right">
                     <button
                       type="button"
                       onClick={() => setSelectedEventId(e.event_id)}
-                      className="text-xs font-medium text-rose-400 hover:text-rose-300"
+                      className="text-xs font-medium hover:opacity-80"
+                      style={{ color: "var(--accent)" }}
                     >
                       View occupancy
                     </button>
@@ -337,13 +411,29 @@ function OccupancyCard({ eventId }: { eventId: string | null }) {
   const data = occupancyQ.data;
 
   return (
-    <section className="rounded-2xl border border-gray-800 bg-gray-900 p-5 shadow-sm">
+    <section
+      className="rounded-2xl border p-5 shadow-sm"
+      style={{
+        borderColor: "var(--border-primary)",
+        background: "var(--bg-secondary)",
+      }}
+    >
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-base font-semibold text-gray-100">Occupancy</h2>
+        <h2
+          className="text-base font-semibold"
+          style={{ color: "var(--text-primary)" }}
+        >
+          Occupancy
+        </h2>
         <select
           value={selected ?? ""}
           onChange={(e) => setLocalEventId(e.target.value || null)}
-          className="rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-100"
+          className="rounded-md border px-2 py-1 text-xs"
+          style={{
+            borderColor: "var(--border-primary)",
+            background: "var(--bg-tertiary)",
+            color: "var(--text-primary)",
+          }}
         >
           <option value="">Pick an event…</option>
           {(listQ.data ?? []).map((e) => (
@@ -354,9 +444,13 @@ function OccupancyCard({ eventId }: { eventId: string | null }) {
         </select>
       </div>
       {!selected ? (
-        <p className="text-sm text-gray-500">Select an event to see its fill rate.</p>
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+          Select an event to see its fill rate.
+        </p>
       ) : occupancyQ.isLoading || !data ? (
-        <p className="text-sm text-gray-500">Loading…</p>
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+          Loading…
+        </p>
       ) : (
         <OccupancyBody data={data} />
       )}
@@ -378,17 +472,27 @@ function OccupancyBody({ data }: { data: OccupancyOut }) {
   return (
     <div className="flex flex-col gap-3">
       <div>
-        <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
+        <p
+          className="text-xs font-medium uppercase tracking-wider"
+          style={{ color: "var(--text-muted)" }}
+        >
           {data.event_title}
         </p>
-        <p className="mt-1 text-2xl font-bold text-gray-100">{pct}%</p>
-        <p className="text-xs text-gray-500">
+        <p
+          className="mt-1 text-2xl font-bold"
+          style={{ color: "var(--text-primary)" }}
+        >
+          {pct}%
+        </p>
+        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
           {data.sold} sold · {data.locked} held · {data.available} available ·{" "}
           {data.unassigned} unassigned
         </p>
       </div>
       {rows.length === 0 ? (
-        <p className="text-sm text-gray-500">No zones configured.</p>
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+          No zones configured.
+        </p>
       ) : (
         <div className="h-52 w-full">
           <ResponsiveContainer>
@@ -434,23 +538,47 @@ function StatCard({
   loading?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5 shadow-sm">
-      <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
+    <div
+      className="rounded-2xl border p-5 shadow-sm"
+      style={{
+        borderColor: "var(--border-primary)",
+        background: "var(--bg-secondary)",
+      }}
+    >
+      <p
+        className="text-xs font-medium uppercase tracking-wider"
+        style={{ color: "var(--text-muted)" }}
+      >
         {label}
       </p>
       {loading ? (
-        <div className="mt-2 h-7 w-24 animate-pulse rounded bg-gray-800" />
+        <div
+          className="mt-2 h-7 w-24 animate-pulse rounded"
+          style={{ background: "var(--bg-tertiary)" }}
+        />
       ) : (
-        <p className="mt-1 text-2xl font-bold text-gray-100">{value}</p>
+        <p
+          className="mt-1 text-2xl font-bold"
+          style={{ color: "var(--text-primary)" }}
+        >
+          {value}
+        </p>
       )}
-      {hint ? <p className="mt-1 text-xs text-gray-500">{hint}</p> : null}
+      {hint ? (
+        <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+          {hint}
+        </p>
+      ) : null}
     </div>
   );
 }
 
 function EmptyChart({ loading }: { loading?: boolean }) {
   return (
-    <div className="flex h-64 items-center justify-center text-sm text-gray-600">
+    <div
+      className="flex h-64 items-center justify-center text-sm"
+      style={{ color: "var(--text-muted)" }}
+    >
       {loading ? "Loading…" : "No data in this range yet."}
     </div>
   );

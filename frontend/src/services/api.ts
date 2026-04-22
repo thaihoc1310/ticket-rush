@@ -1,15 +1,21 @@
 import { useAuthStore } from "@/store/authStore";
 import type {
+  ChangePasswordPayload,
   LoginPayload,
+  ProfileUpdatePayload,
   RegisterPayload,
   TokenResponse,
   User,
+  UserCreatePayload,
+  UserUpdatePayload,
 } from "@/types/auth";
 import type {
   EventCreatePayload,
+  EventImage,
   EventListQuery,
   EventSummary,
   EventUpdatePayload,
+  PaymentAdmin,
   Venue,
   VenueCreatePayload,
   Zone,
@@ -83,6 +89,30 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   return payload as T;
 }
 
+async function uploadRequest<T>(path: string, formData: FormData): Promise<T> {
+  const finalHeaders: Record<string, string> = {};
+  const token = useAuthStore.getState().accessToken;
+  if (token) finalHeaders.Authorization = `Bearer ${token}`;
+
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: finalHeaders,
+    credentials: "include",
+    body: formData,
+  });
+
+  if (response.status === 204) return undefined as T;
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    const message =
+      (payload && typeof payload === "object" && "detail" in payload
+        ? String((payload as { detail: unknown }).detail)
+        : response.statusText) || "Upload failed";
+    throw new ApiError(response.status, message, payload);
+  }
+  return payload as T;
+}
+
 export const authApi = {
   register: (payload: RegisterPayload) =>
     request<User>("/auth/register", { method: "POST", body: payload, auth: false }),
@@ -92,6 +122,10 @@ export const authApi = {
     request<TokenResponse>("/auth/refresh", { method: "POST", auth: false }),
   logout: () => request<void>("/auth/logout", { method: "POST", auth: false }),
   me: () => request<User>("/auth/me"),
+  updateMe: (payload: ProfileUpdatePayload) =>
+    request<User>("/auth/me", { method: "PATCH", body: payload }),
+  changePassword: (payload: ChangePasswordPayload) =>
+    request<void>("/auth/change-password", { method: "POST", body: payload }),
 };
 
 function buildQuery(params: Record<string, string | number | boolean | undefined>): string {
@@ -181,4 +215,40 @@ export const dashboardApi = {
   demographics: () => request<DemographicsOut>("/dashboard/demographics"),
   topEvents: (limit = 5) =>
     request<TopEvent[]>(`/dashboard/top-events?limit=${limit}`),
+};
+
+export const uploadApi = {
+  avatar: (file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return uploadRequest<{ avatar_url: string }>("/upload/avatar", fd);
+  },
+  avatarFor: (userId: string, file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return uploadRequest<{ avatar_url: string }>(`/upload/avatar/${userId}`, fd);
+  },
+  eventImages: (eventId: string, files: File[]) => {
+    const fd = new FormData();
+    files.forEach((f) => fd.append("files", f));
+    return uploadRequest<EventImage[]>(`/upload/event-images/${eventId}`, fd);
+  },
+  deleteEventImage: (imageId: string) =>
+    request<void>(`/event-images/${imageId}`, { method: "DELETE" }),
+  setMainImage: (imageId: string) =>
+    request<EventImage>(`/event-images/${imageId}/set-main`, { method: "PATCH" }),
+};
+
+export const userApi = {
+  list: () => request<User[]>("/users"),
+  get: (id: string) => request<User>(`/users/${id}`),
+  create: (payload: UserCreatePayload) =>
+    request<User>("/users", { method: "POST", body: payload }),
+  update: (id: string, payload: UserUpdatePayload) =>
+    request<User>(`/users/${id}`, { method: "PATCH", body: payload }),
+  remove: (id: string) => request<void>(`/users/${id}`, { method: "DELETE" }),
+};
+
+export const paymentApi = {
+  list: () => request<PaymentAdmin[]>("/payments"),
 };

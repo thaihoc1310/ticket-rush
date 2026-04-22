@@ -1,12 +1,20 @@
-from fastapi import APIRouter, Cookie, Depends, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.database import get_db
 from app.dependencies.auth import get_current_user
 from app.models.user import User
-from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserOut
+from app.schemas.auth import (
+    ChangePasswordRequest,
+    LoginRequest,
+    ProfileUpdate,
+    RegisterRequest,
+    TokenResponse,
+    UserOut,
+)
 from app.services.auth_service import AuthService
+from app.utils.security import hash_password, verify_password
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 settings = get_settings()
@@ -70,3 +78,37 @@ async def logout(response: Response) -> None:
 @router.get("/me", response_model=UserOut)
 async def me(user: User = Depends(get_current_user)) -> User:
     return user
+
+
+@router.patch("/me", response_model=UserOut)
+async def update_me(
+    data: ProfileUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    payload = data.model_dump(exclude_unset=True)
+    for field, value in payload.items():
+        setattr(user, field, value)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+@router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
+async def change_password(
+    data: ChangePasswordRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    if not verify_password(data.current_password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect",
+        )
+    if data.current_password == data.new_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must differ from current password",
+        )
+    user.password_hash = hash_password(data.new_password)
+    await db.commit()

@@ -8,6 +8,7 @@ export interface User {
   date_of_birth: string | null;
   gender: Gender | null;
   role: Role;
+  avatar: string | null;
 }
 
 export interface TokenResponse {
@@ -27,4 +28,33 @@ export interface RegisterPayload {
   full_name: string;
   date_of_birth?: string | null;
   gender?: Gender | null;
+}
+
+export interface UserCreatePayload {
+  email: string;
+  password: string;
+  full_name: string;
+  date_of_birth?: string | null;
+  gender?: Gender | null;
+  role?: Role;
+}
+
+export interface UserUpdatePayload {
+  email?: string;
+  full_name?: string;
+  date_of_birth?: string | null;
+  gender?: Gender | null;
+  role?: Role;
+  password?: string;
+}
+
+export interface ProfileUpdatePayload {
+  full_name?: string;
+  date_of_birth?: string | null;
+  gender?: Gender | null;
+}
+
+export interface ChangePasswordPayload {
+  current_password: string;
+  new_password: string;
 }

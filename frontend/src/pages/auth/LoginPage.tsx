@@ -38,10 +38,18 @@ export function LoginPage() {
   };
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-6 rounded-2xl border border-gray-800 bg-gray-900 p-8 shadow-sm">
+    <div
+      className="mx-auto flex max-w-md flex-col gap-6 rounded-2xl border p-8 shadow-sm"
+      style={{
+        borderColor: "var(--border-primary)",
+        background: "var(--bg-secondary)",
+      }}
+    >
       <div>
-        <h1 className="text-2xl font-semibold text-gray-100">Welcome back</h1>
-        <p className="mt-1 text-sm text-gray-400">
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--text-primary)" }}>
+          Welcome back
+        </h1>
+        <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
           Log in to book tickets and manage your reservations.
         </p>
       </div>
@@ -66,15 +74,24 @@ export function LoginPage() {
           onChange={(e) => setPassword(e.target.value)}
         />
         {error ? (
-          <p className="rounded-md bg-red-950 px-3 py-2 text-sm text-red-400">{error}</p>
+          <p
+            className="rounded-md px-3 py-2 text-sm"
+            style={{ background: "var(--danger-bg)", color: "var(--danger)" }}
+          >
+            {error}
+          </p>
         ) : null}
         <Button type="submit" loading={submitting}>
           Log in
         </Button>
       </form>
-      <p className="text-center text-sm text-gray-500">
+      <p className="text-center text-sm" style={{ color: "var(--text-muted)" }}>
         No account?{" "}
-        <Link to="/register" className="font-medium text-rose-400 hover:text-rose-300">
+        <Link
+          to="/register"
+          className="font-medium hover:opacity-80"
+          style={{ color: "var(--accent)" }}
+        >
           Create one
         </Link>
       </p>

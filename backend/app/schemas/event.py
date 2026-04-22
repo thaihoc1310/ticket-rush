@@ -7,6 +7,16 @@ from app.schemas.venue import VenueOut
 from app.utils.enums import EventStatus
 
 
+class EventImageOut(BaseModel):
+    id: UUID
+    image_url: str
+    is_main: bool
+    display_order: int
+
+    class Config:
+        from_attributes = True
+
+
 class EventBase(BaseModel):
     title: str = Field(min_length=1, max_length=255)
     description: str | None = None
@@ -44,6 +54,7 @@ class EventSummary(BaseModel):
     venue: VenueOut
     grid_rows: int
     grid_cols: int
+    images: list[EventImageOut] = []
 
     class Config:
         from_attributes = True

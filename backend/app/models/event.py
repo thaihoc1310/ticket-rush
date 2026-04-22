@@ -9,6 +9,7 @@ from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 from app.utils.enums import EventStatus
 
 if TYPE_CHECKING:
+    from app.models.event_image import EventImage
     from app.models.seat import Seat
     from app.models.venue import Venue
     from app.models.zone import Zone
@@ -47,4 +48,10 @@ class Event(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     seats: Mapped[list["Seat"]] = relationship(
         back_populates="event",
         cascade="all, delete-orphan",
+    )
+    images: Mapped[list["EventImage"]] = relationship(
+        back_populates="event",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="EventImage.display_order",
     )

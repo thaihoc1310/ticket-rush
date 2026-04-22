@@ -15,6 +15,13 @@ export interface VenueCreatePayload {
   capacity: number;
 }
 
+export interface EventImage {
+  id: string;
+  image_url: string;
+  is_main: boolean;
+  display_order: number;
+}
+
 export interface EventSummary {
   id: string;
   title: string;
@@ -26,6 +33,7 @@ export interface EventSummary {
   venue: Venue;
   grid_rows: number;
   grid_cols: number;
+  images: EventImage[];
 }
 
 export interface EventCreatePayload {
@@ -64,4 +72,16 @@ export interface EventListQuery {
   upcoming?: boolean;
   limit?: number;
   offset?: number;
+}
+
+export interface PaymentAdmin {
+  id: string;
+  booking_id: string;
+  amount: string;
+  method: string;
+  status: string;
+  paid_at: string | null;
+  user_email: string | null;
+  event_title: string | null;
+  booking_status: string | null;
 }

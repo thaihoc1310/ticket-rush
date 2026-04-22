@@ -1,12 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { ApiError, eventApi, venueApi } from "@/services/api";
+import { Modal } from "@/components/ui/Modal";
+import { ApiError, eventApi, uploadApi, venueApi } from "@/services/api";
 import type {
   EventCreatePayload,
+  EventImage,
   EventStatus,
   EventSummary,
 } from "@/types/catalog";
@@ -32,8 +34,13 @@ const emptyForm = (): EventCreatePayload => ({
 
 export function EventsPage() {
   const qc = useQueryClient();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<EventSummary | null>(null);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [galleryEvent, setGalleryEvent] = useState<EventSummary | null>(null);
   const [form, setForm] = useState(emptyForm());
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const venuesQ = useQuery({ queryKey: ["venues"], queryFn: venueApi.list });
   const eventsQ = useQuery({
@@ -44,13 +51,24 @@ export function EventsPage() {
   const create = useMutation({
     mutationFn: (payload: EventCreatePayload) => eventApi.create(payload),
     onSuccess: () => {
-      setForm(emptyForm());
-      setError(null);
+      closeModal();
       qc.invalidateQueries({ queryKey: ["admin", "events"] });
       qc.invalidateQueries({ queryKey: ["events"] });
     },
     onError: (err: unknown) =>
       setError(err instanceof ApiError ? err.message : "Failed to create event"),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Partial<EventCreatePayload> }) =>
+      eventApi.update(id, payload),
+    onSuccess: () => {
+      closeModal();
+      qc.invalidateQueries({ queryKey: ["admin", "events"] });
+      qc.invalidateQueries({ queryKey: ["events"] });
+    },
+    onError: (err: unknown) =>
+      setError(err instanceof ApiError ? err.message : "Failed to update event"),
   });
 
   const updateStatus = useMutation({
@@ -70,17 +88,72 @@ export function EventsPage() {
     },
   });
 
+  const uploadImages = useMutation({
+    mutationFn: ({ eventId, files }: { eventId: string; files: File[] }) =>
+      uploadApi.eventImages(eventId, files),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "events"] });
+      qc.invalidateQueries({ queryKey: ["events"] });
+    },
+  });
+
+  const deleteImage = useMutation({
+    mutationFn: (imageId: string) => uploadApi.deleteEventImage(imageId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "events"] });
+      qc.invalidateQueries({ queryKey: ["events"] });
+    },
+  });
+
+  const setMainImage = useMutation({
+    mutationFn: (imageId: string) => uploadApi.setMainImage(imageId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "events"] });
+      qc.invalidateQueries({ queryKey: ["events"] });
+    },
+  });
+
+  const openCreate = () => {
+    setEditingEvent(null);
+    setForm(emptyForm());
+    setError(null);
+    setModalOpen(true);
+  };
+
+  const openEdit = (e: EventSummary) => {
+    setEditingEvent(e);
+    setForm({
+      venue_id: e.venue.id,
+      title: e.title,
+      description: e.description ?? "",
+      event_date: new Date(e.event_date).toISOString().slice(0, 16),
+      sale_start_at: e.sale_start_at ? new Date(e.sale_start_at).toISOString().slice(0, 16) : "",
+      banner_url: e.banner_url ?? "",
+      status: e.status,
+      grid_rows: e.grid_rows,
+      grid_cols: e.grid_cols,
+    });
+    setError(null);
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setEditingEvent(null);
+    setForm(emptyForm());
+    setError(null);
+  };
+
+  const openGallery = (e: EventSummary) => {
+    setGalleryEvent(e);
+    setGalleryOpen(true);
+  };
+
   const onSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
-    if (!form.venue_id) {
-      setError("Please select a venue.");
-      return;
-    }
-    if (!form.event_date) {
-      setError("Event date is required.");
-      return;
-    }
+    if (!form.venue_id) { setError("Please select a venue."); return; }
+    if (!form.event_date) { setError("Event date is required."); return; }
     const payload: EventCreatePayload = {
       venue_id: form.venue_id,
       title: form.title,
@@ -92,209 +165,259 @@ export function EventsPage() {
       grid_rows: Number(form.grid_rows) || 10,
       grid_cols: Number(form.grid_cols) || 15,
     };
-    create.mutate(payload);
+    if (editingEvent) {
+      updateMut.mutate({ id: editingEvent.id, payload });
+    } else {
+      create.mutate(payload);
+    }
+  };
+
+  const handleFileUpload = (files: FileList | null) => {
+    if (!files || !galleryEvent || files.length === 0) return;
+    uploadImages.mutate({ eventId: galleryEvent.id, files: Array.from(files) });
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const events: EventSummary[] = eventsQ.data ?? [];
   const venues = venuesQ.data ?? [];
+  const galleryImages: EventImage[] = galleryEvent
+    ? (events.find((e) => e.id === galleryEvent.id)?.images ?? [])
+    : [];
 
   return (
     <div className="flex flex-col gap-6">
-      <header>
-        <h1 className="text-2xl font-semibold text-gray-100">Events</h1>
-        <p className="text-sm text-gray-500">
-          Create events, toggle status, and configure seat zones.
-        </p>
+      <header className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold" style={{ color: "var(--text-primary)" }}>Events</h1>
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+            Create events, toggle status, manage gallery, and configure seats.
+          </p>
+        </div>
+        <Button onClick={openCreate} disabled={venues.length === 0}>+ Create Event</Button>
       </header>
 
-      <section className="rounded-2xl border border-gray-800 bg-gray-900 p-6 shadow-sm">
-        <h2 className="text-base font-semibold text-gray-100">New event</h2>
-        {venues.length === 0 ? (
-          <p className="mt-3 text-sm text-amber-400">
-            Create a venue first on the{" "}
-            <Link to="/admin/venues" className="underline">
-              Venues page
-            </Link>
-            .
-          </p>
+      <section className="rounded-2xl border" style={{ borderColor: "var(--border-primary)", background: "var(--bg-secondary)" }}>
+        <div className="border-b px-6 py-4" style={{ borderColor: "var(--border-primary)" }}>
+          <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>All events</h2>
+        </div>
+        {eventsQ.isLoading ? (
+          <p className="px-6 py-6 text-sm" style={{ color: "var(--text-muted)" }}>Loading…</p>
+        ) : events.length ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead style={{ background: "var(--bg-tertiary)" }}>
+                <tr className="text-xs uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+                  <th className="px-6 py-3">Title</th>
+                  <th className="px-6 py-3">Venue</th>
+                  <th className="px-6 py-3">Date</th>
+                  <th className="px-6 py-3">Status</th>
+                  <th className="px-6 py-3" />
+                </tr>
+              </thead>
+              <tbody>
+                {events.map((e) => (
+                  <tr key={e.id} className="border-t" style={{ borderColor: "var(--border-primary)" }}>
+                    <td className="px-6 py-3 font-medium" style={{ color: "var(--text-primary)" }}>{e.title}</td>
+                    <td className="px-6 py-3" style={{ color: "var(--text-secondary)" }}>
+                      {e.venue.name} · {e.venue.city}
+                    </td>
+                    <td className="px-6 py-3" style={{ color: "var(--text-secondary)" }}>
+                      {formatDateTime(e.event_date)}
+                    </td>
+                    <td className="px-6 py-3">
+                      <select
+                        value={e.status}
+                        onChange={(ev) =>
+                          updateStatus.mutate({ id: e.id, status: ev.target.value as EventStatus })
+                        }
+                        className="rounded-md border px-2 py-1 text-xs"
+                        style={{
+                          borderColor: "var(--border-primary)",
+                          background: "var(--bg-tertiary)",
+                          color: "var(--text-primary)",
+                        }}
+                      >
+                        {STATUSES.map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-6 py-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openGallery(e)}
+                          className="text-sm font-medium transition hover:opacity-80"
+                          style={{ color: "var(--accent)" }}
+                        >
+                          Gallery
+                        </button>
+                        <Link
+                          to={`/admin/events/${e.id}/seats`}
+                          className="text-sm font-medium transition hover:opacity-80"
+                          style={{ color: "var(--accent)" }}
+                        >
+                          Seats
+                        </Link>
+                        <Button variant="secondary" onClick={() => openEdit(e)}>Edit</Button>
+                        <Button
+                          variant="ghost"
+                          onClick={() => { if (confirm(`Delete "${e.title}"?`)) remove.mutate(e.id); }}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : (
-          <form onSubmit={onSubmit} className="mt-4 grid gap-4 sm:grid-cols-2">
-            <Input
-              label="Title"
-              required
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-            />
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-gray-300">Venue</label>
-              <select
-                required
-                value={form.venue_id}
-                onChange={(e) => setForm({ ...form, venue_id: e.target.value })}
-                className="rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 shadow-sm focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus:outline-none"
-              >
-                <option value="">Select a venue…</option>
-                {venues.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.name} — {v.city}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <Input
-              label="Event date &amp; time"
-              type="datetime-local"
-              required
-              value={form.event_date}
-              onChange={(e) => setForm({ ...form, event_date: e.target.value })}
-            />
-            <Input
-              label="Sale start (optional)"
-              type="datetime-local"
-              value={form.sale_start_at ?? ""}
-              onChange={(e) => setForm({ ...form, sale_start_at: e.target.value })}
-            />
-            <Input
-              label="Banner URL (optional)"
-              value={form.banner_url ?? ""}
-              onChange={(e) => setForm({ ...form, banner_url: e.target.value })}
-            />
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-gray-300">Status</label>
-              <select
-                value={form.status}
-                onChange={(e) =>
-                  setForm({ ...form, status: e.target.value as EventStatus })
-                }
-                className="rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 shadow-sm focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus:outline-none"
-              >
-                {STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <Input
-              label="Grid rows"
-              type="number"
-              min={1}
-              max={100}
-              required
-              value={form.grid_rows}
-              onChange={(e) =>
-                setForm({ ...form, grid_rows: Number(e.target.value) })
-              }
-            />
-            <Input
-              label="Seats per row"
-              type="number"
-              min={1}
-              max={100}
-              required
-              value={form.grid_cols}
-              onChange={(e) =>
-                setForm({ ...form, grid_cols: Number(e.target.value) })
-              }
-            />
-            <div className="sm:col-span-2 flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-gray-300">
-                Description
-              </label>
-              <textarea
-                rows={3}
-                value={form.description ?? ""}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                className="rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 shadow-sm focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 focus:outline-none"
-              />
-              <p className="text-xs text-gray-500">
-                Grid generates {form.grid_rows}×{form.grid_cols} = {form.grid_rows * form.grid_cols} seats.
-                Assign zones on the Seats page.
-              </p>
-            </div>
-            {error && (
-              <p className="sm:col-span-2 rounded-md bg-red-950 px-3 py-2 text-sm text-red-400">
-                {error}
-              </p>
-            )}
-            <div className="sm:col-span-2">
-              <Button type="submit" loading={create.isPending}>
-                Create event
-              </Button>
-            </div>
-          </form>
+          <p className="px-6 py-6 text-sm" style={{ color: "var(--text-muted)" }}>No events yet.</p>
         )}
       </section>
 
-      <section className="rounded-2xl border border-gray-800 bg-gray-900 shadow-sm">
-        <div className="border-b border-gray-800 px-6 py-4">
-          <h2 className="text-base font-semibold text-gray-100">All events</h2>
-        </div>
-        {eventsQ.isLoading ? (
-          <p className="px-6 py-6 text-sm text-gray-500">Loading…</p>
-        ) : events.length ? (
-          <table className="w-full text-left text-sm">
-            <thead className="bg-gray-800 text-xs uppercase tracking-wider text-gray-500">
-              <tr>
-                <th className="px-6 py-3">Title</th>
-                <th className="px-6 py-3">Venue</th>
-                <th className="px-6 py-3">Date</th>
-                <th className="px-6 py-3">Status</th>
-                <th className="px-6 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-800">
-              {events.map((e) => (
-                <tr key={e.id}>
-                  <td className="px-6 py-3 font-medium text-gray-100">{e.title}</td>
-                  <td className="px-6 py-3 text-gray-400">
-                    {e.venue.name} · {e.venue.city}
-                  </td>
-                  <td className="px-6 py-3 text-gray-400">
-                    {formatDateTime(e.event_date)}
-                  </td>
-                  <td className="px-6 py-3">
-                    <select
-                      value={e.status}
-                      onChange={(ev) =>
-                        updateStatus.mutate({
-                          id: e.id,
-                          status: ev.target.value as EventStatus,
-                        })
-                      }
-                      className="rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-100"
-                    >
-                      {STATUSES.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-6 py-3 text-right">
-                    <Link
-                      to={`/admin/events/${e.id}/seats`}
-                      className="mr-3 text-sm font-medium text-rose-400 hover:text-rose-300"
-                    >
-                      Seats
-                    </Link>
-                    <Button
-                      variant="ghost"
-                      onClick={() => {
-                        if (confirm(`Delete "${e.title}"?`)) remove.mutate(e.id);
-                      }}
-                    >
-                      Delete
-                    </Button>
-                  </td>
-                </tr>
+      {/* Create/Edit Modal */}
+      <Modal open={modalOpen} onClose={closeModal} title={editingEvent ? "Edit Event" : "Create Event"} maxWidth="40rem">
+        <form onSubmit={onSubmit} className="grid gap-4 sm:grid-cols-2">
+          <Input label="Title" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>Venue</label>
+            <select
+              required
+              value={form.venue_id}
+              onChange={(e) => setForm({ ...form, venue_id: e.target.value })}
+              className="rounded-md border px-3 py-2 text-sm shadow-sm"
+              style={{ borderColor: "var(--border-primary)", background: "var(--bg-tertiary)", color: "var(--text-primary)" }}
+            >
+              <option value="">Select a venue…</option>
+              {venues.map((v) => (
+                <option key={v.id} value={v.id}>{v.name} — {v.city}</option>
               ))}
-            </tbody>
-          </table>
-        ) : (
-          <p className="px-6 py-6 text-sm text-gray-500">No events yet.</p>
-        )}
-      </section>
+            </select>
+          </div>
+          <Input
+            label="Event date & time"
+            type="datetime-local"
+            required
+            value={form.event_date}
+            onChange={(e) => setForm({ ...form, event_date: e.target.value })}
+          />
+          <Input
+            label="Sale start (optional)"
+            type="datetime-local"
+            value={form.sale_start_at ?? ""}
+            onChange={(e) => setForm({ ...form, sale_start_at: e.target.value })}
+          />
+          <Input
+            label="Banner URL (optional)"
+            value={form.banner_url ?? ""}
+            onChange={(e) => setForm({ ...form, banner_url: e.target.value })}
+          />
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>Status</label>
+            <select
+              value={form.status}
+              onChange={(e) => setForm({ ...form, status: e.target.value as EventStatus })}
+              className="rounded-md border px-3 py-2 text-sm shadow-sm"
+              style={{ borderColor: "var(--border-primary)", background: "var(--bg-tertiary)", color: "var(--text-primary)" }}
+            >
+              {STATUSES.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+          {!editingEvent && (
+            <>
+              <Input label="Grid rows" type="number" min={1} max={100} required value={form.grid_rows}
+                onChange={(e) => setForm({ ...form, grid_rows: Number(e.target.value) })} />
+              <Input label="Seats per row" type="number" min={1} max={100} required value={form.grid_cols}
+                onChange={(e) => setForm({ ...form, grid_cols: Number(e.target.value) })} />
+            </>
+          )}
+          <div className="sm:col-span-2 flex flex-col gap-1.5">
+            <label className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>Description</label>
+            <textarea
+              rows={3}
+              value={form.description ?? ""}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              className="rounded-md border px-3 py-2 text-sm shadow-sm outline-none"
+              style={{ borderColor: "var(--border-primary)", background: "var(--bg-tertiary)", color: "var(--text-primary)" }}
+            />
+          </div>
+          {error && (
+            <p className="sm:col-span-2 rounded-md px-3 py-2 text-sm" style={{ background: "var(--danger-bg)", color: "var(--danger)" }}>
+              {error}
+            </p>
+          )}
+          <div className="sm:col-span-2 flex justify-end gap-3">
+            <Button variant="secondary" type="button" onClick={closeModal}>Cancel</Button>
+            <Button type="submit" loading={create.isPending || updateMut.isPending}>
+              {editingEvent ? "Save Changes" : "Create Event"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Gallery Modal */}
+      <Modal open={galleryOpen} onClose={() => setGalleryOpen(false)} title={`Gallery — ${galleryEvent?.title ?? ""}`} maxWidth="48rem">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="secondary"
+              onClick={() => fileInputRef.current?.click()}
+              loading={uploadImages.isPending}
+            >
+              + Add Images
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => handleFileUpload(e.target.files)}
+            />
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+              {galleryImages.length} image(s)
+            </span>
+          </div>
+
+          {galleryImages.length === 0 ? (
+            <p className="text-sm py-8 text-center" style={{ color: "var(--text-muted)" }}>
+              No images yet. Click "Add Images" to upload.
+            </p>
+          ) : (
+            <div className="gallery-grid">
+              {galleryImages.map((img) => (
+                <div key={img.id} className={`gallery-item ${img.is_main ? "is-main" : ""}`}>
+                  <img src={img.image_url} alt="" />
+                  <div className="gallery-actions">
+                    <button
+                      type="button"
+                      className="gallery-action-btn star"
+                      title="Set as main"
+                      onClick={() => setMainImage.mutate(img.id)}
+                    >
+                      ★
+                    </button>
+                    <button
+                      type="button"
+                      className="gallery-action-btn delete"
+                      title="Delete"
+                      onClick={() => { if (confirm("Delete this image?")) deleteImage.mutate(img.id); }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {img.is_main && <span className="gallery-main-badge">Main</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }

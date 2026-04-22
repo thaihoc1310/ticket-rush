@@ -165,29 +165,48 @@ export function SeatSelectionPage() {
         <button
           type="button"
           onClick={() => navigate(`/events/${eventId}`)}
-          className="text-sm text-rose-400 hover:text-rose-300"
+          className="text-sm hover:opacity-80"
+          style={{ color: "var(--accent)" }}
         >
           ← Back to event
         </button>
-        <h1 className="mt-1 text-2xl font-semibold text-gray-100">
+        <h1
+          className="mt-1 text-2xl font-semibold"
+          style={{ color: "var(--text-primary)" }}
+        >
           {event ? event.title : "Pick your seats"}
         </h1>
         {event && (
-          <p className="text-sm text-gray-500">
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
             {formatDateTime(event.event_date)} · {event.venue.name}
           </p>
         )}
       </header>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Loading seats…</p>
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+          Loading seats…
+        </p>
       ) : seatsArray.length === 0 || !event ? (
-        <div className="rounded-2xl border border-dashed border-gray-700 bg-gray-900 p-10 text-center text-gray-500">
+        <div
+          className="rounded-2xl border border-dashed p-10 text-center text-sm"
+          style={{
+            borderColor: "var(--border-primary)",
+            background: "var(--bg-secondary)",
+            color: "var(--text-muted)",
+          }}
+        >
           No seats configured for this event yet.
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
-          <section className="rounded-2xl border border-gray-800 bg-gray-900 p-3 shadow-sm">
+          <section
+            className="rounded-2xl border p-3 shadow-sm"
+            style={{
+              borderColor: "var(--border-primary)",
+              background: "var(--bg-secondary)",
+            }}
+          >
             <SeatCanvas
               seats={seatsArray}
               rows={event.grid_rows}
@@ -201,23 +220,38 @@ export function SeatSelectionPage() {
             <CustomerLegend zones={zonesInUse} />
           </section>
 
-          <aside className="flex flex-col gap-4 rounded-2xl border border-gray-800 bg-gray-900 p-5 shadow-sm">
+          <aside
+            className="flex flex-col gap-4 rounded-2xl border p-5 shadow-sm"
+            style={{
+              borderColor: "var(--border-primary)",
+              background: "var(--bg-secondary)",
+            }}
+          >
             <div>
-              <h2 className="text-base font-semibold text-gray-100">
+              <h2
+                className="text-base font-semibold"
+                style={{ color: "var(--text-primary)" }}
+              >
                 Your selection
               </h2>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
                 Seats are held for 10 minutes while you check out.
               </p>
             </div>
             {selected.length === 0 ? (
-              <p className="text-sm text-gray-500">Tap a seat to select it.</p>
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                Tap a seat to select it.
+              </p>
             ) : (
               <ul className="flex flex-col gap-2 text-sm">
                 {selected.map((s) => (
                   <li
                     key={s.id}
-                    className="flex items-center justify-between rounded-lg border border-gray-800 px-3 py-2"
+                    className="flex items-center justify-between rounded-lg border px-3 py-2"
+                    style={{
+                      borderColor: "var(--border-primary)",
+                      color: "var(--text-secondary)",
+                    }}
                   >
                     <span className="flex items-center gap-2">
                       <span
@@ -226,21 +260,33 @@ export function SeatSelectionPage() {
                       />
                       {s.zone_name} · R{s.row_number} S{s.seat_number}
                     </span>
-                    <span className="font-semibold text-gray-100">
+                    <span
+                      className="font-semibold"
+                      style={{ color: "var(--text-primary)" }}
+                    >
                       {formatCurrency(s.price ?? "0")}
                     </span>
                   </li>
                 ))}
               </ul>
             )}
-            <div className="flex items-center justify-between border-t border-gray-800 pt-4 text-sm">
-              <span className="text-gray-500">Total</span>
-              <span className="text-lg font-semibold text-gray-100">
+            <div
+              className="flex items-center justify-between border-t pt-4 text-sm"
+              style={{ borderColor: "var(--border-primary)" }}
+            >
+              <span style={{ color: "var(--text-muted)" }}>Total</span>
+              <span
+                className="text-lg font-semibold"
+                style={{ color: "var(--text-primary)" }}
+              >
                 {formatCurrency(total)}
               </span>
             </div>
             {error && (
-              <p className="rounded-md bg-red-950 px-3 py-2 text-sm text-red-400">
+              <p
+                className="rounded-md px-3 py-2 text-sm"
+                style={{ background: "var(--danger-bg)", color: "var(--danger)" }}
+              >
                 {error}
               </p>
             )}
@@ -260,12 +306,19 @@ export function SeatSelectionPage() {
 
 function CustomerLegend({ zones }: { zones: Zone[] }) {
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-gray-400">
-      <LegendSwatch color="#374151" label="Unassigned" />
-      <LegendSwatch color="#f59e0b" label="Your pick" />
+    <div
+      className="mt-3 flex flex-wrap items-center gap-4 text-xs"
+      style={{ color: "var(--text-secondary)" }}
+    >
+      <LegendSwatch color="#475569" label="Unassigned" />
+      <LegendSwatch color="#8b5cf6" label="Your pick" />
       <LegendSwatch color="#94a3b8" label="Held" />
-      <LegendSwatch color="#ef4444" label="Sold" />
-      <span className="mx-2 h-3 w-px bg-gray-700" />
+      <LegendSwatch color="#64748b" label="Sold" />
+      <LegendSwatch color="#f43f5e" label="Selecting" />
+      <span
+        className="mx-2 h-3 w-px"
+        style={{ background: "var(--border-primary)" }}
+      />
       {zones.map((z) => (
         <LegendSwatch
           key={z.id}

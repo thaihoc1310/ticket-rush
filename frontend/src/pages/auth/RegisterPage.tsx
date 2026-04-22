@@ -42,10 +42,18 @@ export function RegisterPage() {
   };
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-6 rounded-2xl border border-gray-800 bg-gray-900 p-8 shadow-sm">
+    <div
+      className="mx-auto flex max-w-md flex-col gap-6 rounded-2xl border p-8 shadow-sm"
+      style={{
+        borderColor: "var(--border-primary)",
+        background: "var(--bg-secondary)",
+      }}
+    >
       <div>
-        <h1 className="text-2xl font-semibold text-gray-100">Create your account</h1>
-        <p className="mt-1 text-sm text-gray-400">
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--text-primary)" }}>
+          Create your account
+        </h1>
+        <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
           Sign up to reserve seats at your next event.
         </p>
       </div>
@@ -85,7 +93,7 @@ export function RegisterPage() {
             onChange={(e) => setDob(e.target.value)}
           />
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="gender" className="text-sm font-medium text-gray-300">
+            <label htmlFor="gender" className="input-label">
               Gender
             </label>
             <select
@@ -93,7 +101,7 @@ export function RegisterPage() {
               name="gender"
               value={gender}
               onChange={(e) => setGender(e.target.value as Gender | "")}
-              className="rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 shadow-sm outline-none transition focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+              className="input-field"
             >
               <option value="">Prefer not to say</option>
               <option value="MALE">Male</option>
@@ -103,15 +111,24 @@ export function RegisterPage() {
           </div>
         </div>
         {error ? (
-          <p className="rounded-md bg-red-950 px-3 py-2 text-sm text-red-400">{error}</p>
+          <p
+            className="rounded-md px-3 py-2 text-sm"
+            style={{ background: "var(--danger-bg)", color: "var(--danger)" }}
+          >
+            {error}
+          </p>
         ) : null}
         <Button type="submit" loading={submitting}>
           Create account
         </Button>
       </form>
-      <p className="text-center text-sm text-gray-500">
+      <p className="text-center text-sm" style={{ color: "var(--text-muted)" }}>
         Already have an account?{" "}
-        <Link to="/login" className="font-medium text-rose-400 hover:text-rose-300">
+        <Link
+          to="/login"
+          className="font-medium hover:opacity-80"
+          style={{ color: "var(--accent)" }}
+        >
           Log in
         </Link>
       </p>

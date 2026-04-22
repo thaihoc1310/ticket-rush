@@ -139,14 +139,18 @@ export function SeatEditorPage() {
       <header>
         <Link
           to="/admin/events"
-          className="text-sm text-rose-400 hover:text-rose-300"
+          className="text-sm hover:opacity-80"
+          style={{ color: "var(--accent)" }}
         >
           ← All events
         </Link>
-        <h1 className="mt-1 text-2xl font-semibold text-gray-100">
+        <h1
+          className="mt-1 text-2xl font-semibold"
+          style={{ color: "var(--text-primary)" }}
+        >
           Seat matrix · {event?.title ?? "…"}
         </h1>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>
           {event
             ? `Grid ${event.grid_rows} rows × ${event.grid_cols} seats · ${assignedCount}/${seats.length} assigned`
             : "Loading…"}
@@ -156,8 +160,19 @@ export function SeatEditorPage() {
 
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
         <aside className="flex flex-col gap-5">
-          <section className="rounded-2xl border border-gray-800 bg-gray-900 p-5 shadow-sm">
-            <h2 className="text-base font-semibold text-gray-100">Zones</h2>
+          <section
+            className="rounded-2xl border p-5 shadow-sm"
+            style={{
+              borderColor: "var(--border-primary)",
+              background: "var(--bg-secondary)",
+            }}
+          >
+            <h2
+              className="text-base font-semibold"
+              style={{ color: "var(--text-primary)" }}
+            >
+              Zones
+            </h2>
             <form onSubmit={submitZone} className="mt-4 flex flex-col gap-3">
               <Input
                 label="Zone name"
@@ -175,19 +190,26 @@ export function SeatEditorPage() {
                 onChange={(e) => setZoneForm({ ...zoneForm, price: e.target.value })}
               />
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-gray-300">Color</label>
+                <label className="input-label">Color</label>
                 <input
                   type="color"
                   value={zoneForm.color}
                   onChange={(e) => setZoneForm({ ...zoneForm, color: e.target.value })}
-                  className="h-10 w-full rounded-md border border-gray-700"
+                  className="h-10 w-full rounded-md border"
+                  style={{ borderColor: "var(--border-primary)" }}
                 />
               </div>
               <Button type="submit" loading={createZone.isPending}>
                 Add zone
               </Button>
               {error && (
-                <p className="rounded-md bg-red-950 px-3 py-2 text-sm text-red-400">
+                <p
+                  className="rounded-md px-3 py-2 text-sm"
+                  style={{
+                    background: "var(--danger-bg)",
+                    color: "var(--danger)",
+                  }}
+                >
                   {error}
                 </p>
               )}
@@ -195,24 +217,31 @@ export function SeatEditorPage() {
 
             <ul className="mt-5 flex flex-col gap-2">
               {zones.length === 0 ? (
-                <li className="text-sm text-gray-500">
+                <li className="text-sm" style={{ color: "var(--text-muted)" }}>
                   No zones yet. Create one, then drag across seats on the canvas.
                 </li>
               ) : (
                 zones.map((z) => (
                   <li
                     key={z.id}
-                    className="flex items-center justify-between gap-2 rounded-lg border border-gray-800 p-2 text-sm"
+                    className="flex items-center justify-between gap-2 rounded-lg border p-2 text-sm"
+                    style={{ borderColor: "var(--border-primary)" }}
                   >
                     <span className="flex min-w-0 items-center gap-2">
                       <span
                         className="h-3 w-3 rounded-full"
                         style={{ backgroundColor: z.color }}
                       />
-                      <span className="truncate font-medium text-gray-200">
+                      <span
+                        className="truncate font-medium"
+                        style={{ color: "var(--text-primary)" }}
+                      >
                         {z.name}
                       </span>
-                      <span className="text-xs text-gray-500">
+                      <span
+                        className="text-xs"
+                        style={{ color: "var(--text-muted)" }}
+                      >
                         {formatCurrency(z.price)}
                       </span>
                     </span>
@@ -221,7 +250,8 @@ export function SeatEditorPage() {
                         type="button"
                         disabled={selectedCount === 0 || bulkAssign.isPending}
                         onClick={() => bulkAssign.mutate(z.id)}
-                        className="rounded bg-rose-500 px-2 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-gray-800 disabled:text-gray-500"
+                        className="rounded px-2 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                        style={{ background: "var(--accent)" }}
                         title={
                           selectedCount === 0
                             ? "Select seats first"
@@ -240,7 +270,8 @@ export function SeatEditorPage() {
                           )
                             removeZone.mutate(z.id);
                         }}
-                        className="text-xs text-red-400 hover:text-red-300"
+                        className="text-xs hover:opacity-80"
+                        style={{ color: "var(--danger)" }}
                       >
                         Remove
                       </button>
@@ -262,7 +293,13 @@ export function SeatEditorPage() {
         </aside>
 
         <section className="min-w-0">
-          <div className="rounded-2xl border border-gray-800 bg-gray-900 p-3 shadow-sm">
+          <div
+            className="rounded-2xl border p-3 shadow-sm"
+            style={{
+              borderColor: "var(--border-primary)",
+              background: "var(--bg-secondary)",
+            }}
+          >
             {event ? (
               <SeatCanvas
                 seats={seats}
@@ -276,7 +313,12 @@ export function SeatEditorPage() {
                 height={620}
               />
             ) : (
-              <p className="p-10 text-center text-sm text-gray-500">Loading…</p>
+              <p
+                className="p-10 text-center text-sm"
+                style={{ color: "var(--text-muted)" }}
+              >
+                Loading…
+              </p>
             )}
           </div>
         </section>
@@ -299,9 +341,20 @@ function SelectionPanel({
   unassigning,
 }: SelectionPanelProps) {
   return (
-    <section className="rounded-2xl border border-gray-800 bg-gray-900 p-5 shadow-sm">
-      <h2 className="text-base font-semibold text-gray-100">Selection</h2>
-      <p className="mt-1 text-sm text-gray-500">
+    <section
+      className="rounded-2xl border p-5 shadow-sm"
+      style={{
+        borderColor: "var(--border-primary)",
+        background: "var(--bg-secondary)",
+      }}
+    >
+      <h2
+        className="text-base font-semibold"
+        style={{ color: "var(--text-primary)" }}
+      >
+        Selection
+      </h2>
+      <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
         {count === 0
           ? "Drag a box on the canvas, or click individual seats."
           : `${count} seat${count === 1 ? "" : "s"} selected.`}
@@ -311,12 +364,7 @@ function SelectionPanel({
           <Button variant="secondary" onClick={onClear}>
             Clear
           </Button>
-          <Button
-            variant="ghost"
-            onClick={onUnassign}
-            loading={unassigning}
-            className="border border-gray-700"
-          >
+          <Button variant="secondary" onClick={onUnassign} loading={unassigning}>
             Unassign
           </Button>
         </div>
@@ -327,10 +375,24 @@ function SelectionPanel({
 
 function Legend({ zones }: { zones: Zone[] }) {
   return (
-    <section className="rounded-2xl border border-gray-800 bg-gray-900 p-5 shadow-sm">
-      <h2 className="text-base font-semibold text-gray-100">Legend</h2>
-      <ul className="mt-3 flex flex-col gap-1.5 text-xs text-gray-400">
-        <LegendRow color="#374151" label="Unassigned" />
+    <section
+      className="rounded-2xl border p-5 shadow-sm"
+      style={{
+        borderColor: "var(--border-primary)",
+        background: "var(--bg-secondary)",
+      }}
+    >
+      <h2
+        className="text-base font-semibold"
+        style={{ color: "var(--text-primary)" }}
+      >
+        Legend
+      </h2>
+      <ul
+        className="mt-3 flex flex-col gap-1.5 text-xs"
+        style={{ color: "var(--text-secondary)" }}
+      >
+        <LegendRow color="#475569" label="Unassigned" />
         <LegendRow color="#f43f5e" label="Selected" />
         {zones.map((z) => (
           <LegendRow key={z.id} color={z.color} label={z.name} />

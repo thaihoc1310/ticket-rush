@@ -1,9 +1,11 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.redis import get_redis, get_redis_pool
@@ -11,8 +13,11 @@ from app.routers import auth as auth_router
 from app.routers import bookings as bookings_router
 from app.routers import dashboard as dashboard_router
 from app.routers import events as events_router
+from app.routers import payments as payments_router
 from app.routers import seats as seats_router
 from app.routers import tickets as tickets_router
+from app.routers import uploads as uploads_router
+from app.routers import users as users_router
 from app.routers import venues as venues_router
 from app.routers import zones as zones_router
 from app.scheduler.setup import shutdown_scheduler, start_scheduler
@@ -21,9 +26,12 @@ from app.ws.pubsub import run_seat_pubsub_listener
 
 log = logging.getLogger(__name__)
 
+UPLOAD_DIR = Path("uploads")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     get_redis_pool()
     redis = await get_redis()
     pubsub_task = asyncio.create_task(run_seat_pubsub_listener(redis))
@@ -57,6 +65,9 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Static files for uploads
+    app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+
     app.include_router(auth_router.router)
     app.include_router(venues_router.router)
     app.include_router(events_router.router)
@@ -65,6 +76,9 @@ def create_app() -> FastAPI:
     app.include_router(bookings_router.router)
     app.include_router(tickets_router.router)
     app.include_router(dashboard_router.router)
+    app.include_router(uploads_router.router)
+    app.include_router(payments_router.router)
+    app.include_router(users_router.router)
     app.include_router(seats_ws.router)
 
     @app.get("/api/health", tags=["health"])

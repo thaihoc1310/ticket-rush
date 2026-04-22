@@ -16,7 +16,7 @@ concurrency handling, and a virtual queue system.
 ```bash
 docker compose up -d
 uv run python -m scripts.seed_admin admin@example.com admin12345 "Admin"
-uv run python -m scripts.seed_demo (Optional)
+uv run python -m scripts.seed_demo  # optional
 ```
 
 Postgres runs on `localhost:5433`, Redis on `localhost:6380` (remapped to avoid
@@ -27,8 +27,9 @@ clashing with any local install of the same services).
 ```bash
 cd backend
 cp .env.example .env            # set JWT_SECRET_KEY in production
+uv venv
 uv sync
-uv run alembic upgrade head
+uv run alembic upgrade head     
 uv run uvicorn app.main:app --reload
 ```
 

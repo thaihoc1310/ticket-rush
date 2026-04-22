@@ -45,3 +45,9 @@ Thumbs.db
 
 # Docker volumes (local)
 .volumes/
+
+.agent
+
+# Local uploaded media (avatars, event gallery) — dev only; use cloud storage in prod
+backend/uploads/**
+!backend/uploads/.gitkeep

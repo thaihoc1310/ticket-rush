@@ -17,6 +17,7 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     gender: Mapped[Gender | None] = mapped_column(
         Enum(Gender, name="gender_enum"), nullable=True
     )
+    avatar: Mapped[str | None] = mapped_column(String(500), nullable=True)
     role: Mapped[Role] = mapped_column(
         Enum(Role, name="role_enum"),
         default=Role.CUSTOMER,
