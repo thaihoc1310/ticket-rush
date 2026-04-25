@@ -1,3 +1,4 @@
+from pathlib import Path
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -14,7 +15,7 @@ class UserService:
         self.db = db
 
     async def list(self, limit: int = 100, offset: int = 0) -> list[User]:
-        stmt = select(User).order_by(User.created_at.desc()).limit(limit).offset(offset)
+        stmt = select(User).order_by(User.created_at.desc(), User.id.asc()).limit(limit).offset(offset)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
@@ -48,6 +49,13 @@ class UserService:
             user.password_hash = hash_password(payload.pop("password"))
         elif "password" in payload:
             payload.pop("password")
+            
+        # Delete old avatar file from disk when avatar URL changes
+        if "avatar" in payload and user.avatar and user.avatar != payload["avatar"]:
+            old_path = Path(user.avatar.lstrip("/"))
+            if old_path.exists():
+                old_path.unlink(missing_ok=True)
+                
         for field, value in payload.items():
             setattr(user, field, value)
         await self.db.commit()

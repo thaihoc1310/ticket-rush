@@ -73,19 +73,6 @@ export function UserMenu({ user, onLogout, onAvatarClick, uploading }: Props) {
             <p className="user-menu-heading-email">{user.email}</p>
           </div>
           <div className="user-menu-divider" />
-          {onAvatarClick && (
-            <button
-              type="button"
-              className="user-menu-item"
-              onClick={() => {
-                setOpen(false);
-                onAvatarClick();
-              }}
-            >
-              <MenuIcon name="camera" />
-              Change avatar
-            </button>
-          )}
           <Link
             to="/account"
             className="user-menu-item"

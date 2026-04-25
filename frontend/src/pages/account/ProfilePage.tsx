@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -14,13 +14,24 @@ export function ProfilePage() {
   const [dob, setDob] = useState(user?.date_of_birth ?? "");
   const [gender, setGender] = useState<Gender | "">(user?.gender ?? "");
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  // --- Avatar preview state ---
+  const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+
+  // Cleanup object URL on unmount or when preview changes
+  useEffect(() => {
+    return () => {
+      if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    };
+  }, [avatarPreview]);
 
   if (!user) return null;
 
   const initials = user.full_name.charAt(0).toUpperCase();
+  const displayAvatar = avatarPreview ?? user.avatar;
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -28,12 +39,32 @@ export function ProfilePage() {
     setError(null);
     setMessage(null);
     try {
+      // Step 1: Upload pending avatar file if exists
+      let avatarUrl: string | undefined;
+      if (pendingAvatarFile) {
+        const { avatar_url } = await uploadApi.avatar(pendingAvatarFile);
+        avatarUrl = avatar_url;
+      }
+
+      // Step 2: Update profile (including avatar URL if uploaded)
       const updated = await authApi.updateMe({
         full_name: fullName || undefined,
         date_of_birth: dob || null,
         gender: (gender || null) as Gender | null,
+        ...(avatarUrl !== undefined && { avatar: avatarUrl }),
       });
+
       useAuthStore.getState().setUser(updated);
+
+      // Clear pending avatar state
+      if (pendingAvatarFile) {
+        setPendingAvatarFile(null);
+        if (avatarPreview) {
+          URL.revokeObjectURL(avatarPreview);
+          setAvatarPreview(null);
+        }
+      }
+
       setMessage("Profile updated successfully.");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to save changes.");
@@ -44,22 +75,18 @@ export function ProfilePage() {
 
   const onPickAvatar = () => fileInputRef.current?.click();
 
-  const onAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    setUploading(true);
+
+    // Revoke previous preview URL to avoid memory leak
+    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+
+    setPendingAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
     setError(null);
     setMessage(null);
-    try {
-      const { avatar_url } = await uploadApi.avatar(file);
-      useAuthStore.getState().setUser({ ...user, avatar: avatar_url });
-      setMessage("Avatar updated.");
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Unable to upload avatar.");
-    } finally {
-      setUploading(false);
-    }
   };
 
   return (
@@ -75,15 +102,7 @@ export function ProfilePage() {
 
       <div className="account-avatar-block mt-6">
         <div className="account-avatar">
-          {user.avatar ? <img src={user.avatar} alt="" /> : <span>{initials}</span>}
-          {uploading && (
-            <span
-              className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-white"
-              style={{ background: "rgba(0,0,0,0.55)" }}
-            >
-              Uploading…
-            </span>
-          )}
+          {displayAvatar ? <img src={displayAvatar} alt="" /> : <span>{initials}</span>}
         </div>
         <div className="flex flex-col gap-2">
           <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
@@ -97,9 +116,8 @@ export function ProfilePage() {
               type="button"
               variant="secondary"
               onClick={onPickAvatar}
-              disabled={uploading}
             >
-              {uploading ? "Uploading…" : user.avatar ? "Change photo" : "Upload photo"}
+              {user.avatar || pendingAvatarFile ? "Change photo" : "Upload photo"}
             </Button>
           </div>
           <input

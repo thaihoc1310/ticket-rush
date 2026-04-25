@@ -38,8 +38,21 @@ export function SeatSelectionPage() {
   }, [eventId, setSelected]);
 
   useEffect(() => {
-    if (seatsQ.data) setAll(seatsQ.data);
-  }, [seatsQ.data, setAll]);
+    if (seatsQ.data) {
+      setAll(seatsQ.data);
+      if (user) {
+        const mine = seatsQ.data
+          .filter((s) => s.status === "LOCKED" && s.locked_by === user.id)
+          .map((s) => s.id);
+        
+        const currentSelected = useSeatStore.getState().selectedIds;
+        const toAdd = mine.filter(id => !currentSelected.includes(id));
+        if (toAdd.length > 0) {
+          setSelected([...currentSelected, ...toAdd]);
+        }
+      }
+    }
+  }, [seatsQ.data, setAll, user, setSelected]);
 
   useSeatWebSocket(eventId, (msg) => {
     applyUpdate(msg.seat_id, {
