@@ -15,6 +15,7 @@ import type {
   EventListQuery,
   EventSummary,
   EventUpdatePayload,
+  FilterMeta,
   PaymentAdmin,
   Venue,
   VenueCreatePayload,
@@ -156,6 +157,8 @@ export const eventApi = {
     ),
   get: (id: string) =>
     request<EventSummary>(`/events/${id}`, { auth: false }),
+  filterMeta: () =>
+    request<FilterMeta>("/events/filter-meta", { auth: false }),
   create: (payload: EventCreatePayload) =>
     request<EventSummary>("/events", { method: "POST", body: payload }),
   update: (id: string, payload: EventUpdatePayload) =>

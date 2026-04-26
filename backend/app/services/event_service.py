@@ -2,14 +2,15 @@ from datetime import datetime
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.event import Event
 from app.models.seat import Seat
 from app.models.venue import Venue
-from app.schemas.event import EventCreate, EventUpdate
+from app.models.zone import Zone
+from app.schemas.event import EventCreate, EventUpdate, FilterMeta
 from app.utils.enums import EventStatus, SeatStatus
 
 
@@ -22,8 +23,13 @@ class EventService:
         *,
         search: str | None = None,
         city: str | None = None,
+        cities: list[str] | None = None,
         status_filter: EventStatus | None = None,
-        upcoming_only: bool = False,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+        price_min: float | None = None,
+        price_max: float | None = None,
+        categories: list[str] | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> list[Event]:
@@ -37,16 +43,70 @@ class EventService:
                     Event.description.ilike(like),
                 )
             )
-        if city:
+
+        # Single city param (legacy compat) or multi-city list
+        if cities:
+            stmt = stmt.join(Event.venue).where(Venue.city.in_(cities))
+        elif city:
             stmt = stmt.join(Event.venue).where(Venue.city.ilike(f"%{city}%"))
+
         if status_filter:
             stmt = stmt.where(Event.status == status_filter)
-        if upcoming_only:
-            stmt = stmt.where(Event.event_date >= datetime.utcnow())
+        if date_from:
+            stmt = stmt.where(Event.event_date >= date_from)
+        if date_to:
+            stmt = stmt.where(Event.event_date <= date_to)
+        if categories:
+            stmt = stmt.where(Event.category.in_(categories))
+
+        # Price range: filter events having at least one zone within the range
+        if price_min is not None or price_max is not None:
+            zone_subq = select(Zone.event_id).distinct()
+            if price_min is not None:
+                zone_subq = zone_subq.where(Zone.price >= price_min)
+            if price_max is not None:
+                zone_subq = zone_subq.where(Zone.price <= price_max)
+            stmt = stmt.where(Event.id.in_(zone_subq))
 
         stmt = stmt.order_by(Event.event_date).limit(limit).offset(offset)
         result = await self.db.execute(stmt)
         return list(result.scalars().unique().all())
+
+    async def get_filter_meta(self) -> FilterMeta:
+        """Return dynamic filter boundaries: price range, cities, categories."""
+        # Min/max zone prices
+        price_stmt = select(func.min(Zone.price), func.max(Zone.price))
+        price_result = await self.db.execute(price_stmt)
+        row = price_result.one()
+        min_price = float(row[0]) if row[0] is not None else 0
+        max_price = float(row[1]) if row[1] is not None else 0
+
+        # Distinct cities from venues linked to events
+        city_stmt = (
+            select(Venue.city)
+            .distinct()
+            .join(Event, Event.venue_id == Venue.id)
+            .order_by(Venue.city)
+        )
+        city_result = await self.db.execute(city_stmt)
+        cities = [r[0] for r in city_result.all()]
+
+        # Distinct categories
+        cat_stmt = (
+            select(Event.category)
+            .distinct()
+            .where(Event.category.is_not(None))
+            .order_by(Event.category)
+        )
+        cat_result = await self.db.execute(cat_stmt)
+        categories = [r[0] for r in cat_result.all()]
+
+        return FilterMeta(
+            min_price=min_price,
+            max_price=max_price,
+            cities=cities,
+            categories=categories,
+        )
 
     async def get(self, event_id: UUID) -> Event:
         stmt = (

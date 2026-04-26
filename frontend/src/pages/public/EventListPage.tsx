@@ -1,17 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { FilterModal, defaultFilter, type FilterState } from "@/components/FilterModal";
 import { eventApi } from "@/services/api";
-import type { EventStatus, EventSummary } from "@/types/catalog";
+import type { EventListQuery, EventSummary } from "@/types/catalog";
 import { formatDateTime } from "@/utils/format";
-
-const STATUSES: Array<{ value: EventStatus | ""; label: string }> = [
-  { value: "", label: "All statuses" },
-  { value: "PUBLISHED", label: "Published" },
-  { value: "DRAFT", label: "Draft" },
-  { value: "ENDED", label: "Ended" },
-];
 
 function mainImageUrl(event: EventSummary): string | null {
   if (event.images?.length) {
@@ -21,29 +15,70 @@ function mainImageUrl(event: EventSummary): string | null {
   return event.banner_url;
 }
 
+function countActive(state: FilterState, meta: { min_price: number; max_price: number } | undefined): number {
+  let n = 0;
+  if (state.dateRange.startDate || state.dateRange.endDate) n++;
+  if (meta && (state.priceRange.min > meta.min_price || state.priceRange.max < meta.max_price)) n++;
+  if (state.locations.length) n++;
+  if (state.categories.length) n++;
+  if (state.status) n++;
+  return n;
+}
+
 export function EventListPage() {
   const [q, setQ] = useState("");
-  const [city, setCity] = useState("");
-  const [statusFilter, setStatusFilter] = useState<EventStatus | "">("PUBLISHED");
-  const [upcoming, setUpcoming] = useState(true);
+  const [filterOpen, setFilterOpen] = useState(false);
 
-  const query = useMemo(
-    () => ({
-      q: q.trim() || undefined,
-      city: city.trim() || undefined,
-      status: statusFilter || undefined,
-      upcoming,
-    }),
-    [q, city, statusFilter, upcoming],
-  );
+  // Fetch filter metadata (price bounds, cities, categories)
+  const metaQ = useQuery({
+    queryKey: ["events", "filter-meta"],
+    queryFn: eventApi.filterMeta,
+    staleTime: 60_000,
+  });
+  const meta = metaQ.data;
+
+  const [filters, setFilters] = useState<FilterState>(() => defaultFilter(meta));
+
+  // Sync price range when meta first arrives
+  useEffect(() => {
+    if (meta) {
+      setFilters((prev) => ({
+        ...prev,
+        priceRange: {
+          min: prev.priceRange.min === 0 ? meta.min_price : prev.priceRange.min,
+          max: prev.priceRange.max === 1000 ? meta.max_price : prev.priceRange.max,
+        },
+      }));
+    }
+  }, [meta]);
+
+  // Build query object from search + applied filters
+  const query: EventListQuery = useMemo(() => {
+    const out: EventListQuery = {};
+    const search = q.trim();
+    if (search) out.q = search;
+    if (filters.status) out.status = filters.status;
+    if (filters.dateRange.startDate) out.date_from = new Date(filters.dateRange.startDate + "T00:00:00").toISOString();
+    if (filters.dateRange.endDate) out.date_to = new Date(filters.dateRange.endDate + "T23:59:59").toISOString();
+    if (filters.locations.length) out.cities = filters.locations.join(",");
+    if (filters.categories.length) out.categories = filters.categories.join(",");
+    if (meta) {
+      if (filters.priceRange.min > meta.min_price) out.price_min = filters.priceRange.min;
+      if (filters.priceRange.max < meta.max_price) out.price_max = filters.priceRange.max;
+    }
+    return out;
+  }, [q, filters, meta]);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["events", query],
     queryFn: () => eventApi.list(query),
   });
 
+  const activeCount = countActive(filters, meta);
+
   return (
     <div className="flex flex-col gap-8">
+      {/* ── Hero ── */}
       <section className="hero-gradient rounded-3xl px-8 py-12 shadow-lg">
         <p className="text-sm font-semibold uppercase tracking-widest opacity-80">
           TicketRush
@@ -56,75 +91,38 @@ export function EventListPage() {
         </p>
       </section>
 
-      <section
-        className="flex flex-col gap-4 rounded-2xl border p-4 shadow-sm sm:flex-row sm:items-end"
-        style={{
-          borderColor: "var(--border-primary)",
-          background: "var(--bg-secondary)",
-        }}
-      >
-        <div className="flex-1">
-          <label
-            className="text-xs font-medium uppercase tracking-wider"
-            style={{ color: "var(--text-muted)" }}
-          >
-            Search
-          </label>
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Concert, festival, artist…"
-            className="input-field mt-1"
-          />
-        </div>
-        <div className="w-full sm:w-48">
-          <label
-            className="text-xs font-medium uppercase tracking-wider"
-            style={{ color: "var(--text-muted)" }}
-          >
-            City
-          </label>
-          <input
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            placeholder="Any"
-            className="input-field mt-1"
-          />
-        </div>
-        <div className="w-full sm:w-48">
-          <label
-            className="text-xs font-medium uppercase tracking-wider"
-            style={{ color: "var(--text-muted)" }}
-          >
-            Status
-          </label>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as EventStatus | "")}
-            className="input-field mt-1"
-          >
-            {STATUSES.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <label
-          className="flex items-center gap-2 text-sm"
-          style={{ color: "var(--text-secondary)" }}
+      {/* ── Search + Filter trigger ── */}
+      <div className="event-search-row">
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search concerts, festivals, artists…"
+          className="input-field"
+        />
+        <button
+          type="button"
+          id="filter-trigger"
+          className="filter-trigger-btn"
+          onClick={() => setFilterOpen(true)}
         >
-          <input
-            type="checkbox"
-            checked={upcoming}
-            onChange={(e) => setUpcoming(e.target.checked)}
-            className="h-4 w-4 rounded"
-            style={{ accentColor: "var(--accent)" }}
-          />
-          Upcoming only
-        </label>
-      </section>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="4" y1="6" x2="20" y2="6" /><line x1="8" y1="12" x2="20" y2="12" /><line x1="12" y1="18" x2="20" y2="18" />
+          </svg>
+          Filters
+          {activeCount > 0 && <span className="filter-badge">{activeCount}</span>}
+        </button>
+      </div>
 
+      {/* ── Filter Modal ── */}
+      <FilterModal
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        onApply={setFilters}
+        meta={meta}
+        initial={filters}
+      />
+
+      {/* ── Event grid ── */}
       <section>
         {isLoading && (
           <p className="text-sm" style={{ color: "var(--text-muted)" }}>
@@ -198,9 +196,14 @@ export function EventListPage() {
                   >
                     {event.title}
                   </h3>
-                  <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                    {event.venue.name}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                      {event.venue.name}
+                    </p>
+                    {event.category && (
+                      <span className="badge badge-accent">{event.category}</span>
+                    )}
+                  </div>
                   <p
                     className="mt-auto text-xs"
                     style={{ color: "var(--text-muted)" }}

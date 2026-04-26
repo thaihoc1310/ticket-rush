@@ -15,6 +15,7 @@ import type {
 import { formatDateTime } from "@/utils/format";
 
 const STATUSES: EventStatus[] = ["DRAFT", "PUBLISHED", "ENDED"];
+const CATEGORIES = ["Concert", "Workshop", "Festival", "Theater"];
 
 function fromLocalInput(value: string): string {
   return new Date(value).toISOString();
@@ -30,6 +31,7 @@ const emptyForm = (): EventCreatePayload => ({
   status: "DRAFT",
   grid_rows: 10,
   grid_cols: 15,
+  category: "",
 });
 
 export function EventsPage() {
@@ -132,6 +134,7 @@ export function EventsPage() {
       status: e.status,
       grid_rows: e.grid_rows,
       grid_cols: e.grid_cols,
+      category: e.category ?? "",
     });
     setError(null);
     setModalOpen(true);
@@ -164,6 +167,7 @@ export function EventsPage() {
       status: form.status,
       grid_rows: Number(form.grid_rows) || 10,
       grid_cols: Number(form.grid_cols) || 15,
+      category: form.category || null,
     };
     if (editingEvent) {
       updateMut.mutate({ id: editingEvent.id, payload });
@@ -325,6 +329,20 @@ export function EventsPage() {
             >
               {STATUSES.map((s) => (
                 <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>Category</label>
+            <select
+              value={form.category ?? ""}
+              onChange={(e) => setForm({ ...form, category: e.target.value })}
+              className="rounded-md border px-3 py-2 text-sm shadow-sm"
+              style={{ borderColor: "var(--border-primary)", background: "var(--bg-tertiary)", color: "var(--text-primary)" }}
+            >
+              <option value="">No category</option>
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
               ))}
             </select>
           </div>

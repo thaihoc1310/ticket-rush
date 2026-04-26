@@ -15,6 +15,8 @@ concurrency handling, and a virtual queue system.
 
 ```bash
 docker compose up -d
+cd backend
+uv run alembic upgrade head
 uv run python -m scripts.seed_admin admin@example.com admin12345 "Admin"
 uv run python -m scripts.seed_demo  # optional
 ```

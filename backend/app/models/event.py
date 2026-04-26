@@ -38,6 +38,7 @@ class Event(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     grid_rows: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
     grid_cols: Mapped[int] = mapped_column(Integer, nullable=False, default=15)
+    category: Mapped[str | None] = mapped_column(String(60), nullable=True, index=True)
 
     venue: Mapped["Venue"] = relationship(back_populates="events", lazy="joined")
     zones: Mapped[list["Zone"]] = relationship(

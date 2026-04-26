@@ -33,6 +33,7 @@ export interface EventSummary {
   venue: Venue;
   grid_rows: number;
   grid_cols: number;
+  category: string | null;
   images: EventImage[];
 }
 
@@ -46,6 +47,7 @@ export interface EventCreatePayload {
   status?: EventStatus;
   grid_rows: number;
   grid_cols: number;
+  category?: string | null;
 }
 
 export interface EventUpdatePayload extends Partial<EventCreatePayload> {}
@@ -68,10 +70,22 @@ export interface ZoneCreatePayload {
 export interface EventListQuery {
   q?: string;
   city?: string;
+  cities?: string;
   status?: EventStatus;
-  upcoming?: boolean;
+  date_from?: string;
+  date_to?: string;
+  price_min?: number;
+  price_max?: number;
+  categories?: string;
   limit?: number;
   offset?: number;
+}
+
+export interface FilterMeta {
+  min_price: number;
+  max_price: number;
+  cities: string[];
+  categories: string[];
 }
 
 export interface PaymentAdmin {

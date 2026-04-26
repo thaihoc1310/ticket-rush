@@ -3,9 +3,9 @@
 Creates:
   - 1 admin + N customers with varied ages/genders
   - 2 venues
-  - 3 events (mix of upcoming + past) with 8×12 master grids
-  - Multiple zones per event, with seats assigned
-  - CONFIRMED bookings spread across the last 30 days, with payments
+  - 10 events (mix of upcoming + past, Apr–Jun 2026) with randomised grids
+  - Multiple zones per event with prices spread $10–$200
+  - CONFIRMED bookings (≤60 % capacity so seats always remain available)
 
 Usage:
     uv run python -m scripts.seed_demo
@@ -103,11 +103,16 @@ async def create_venues(db) -> list[Venue]:
     return venues
 
 
-ZONE_PRESETS = [
-    ("VIP", Decimal("200.00"), "#ef4444"),
-    ("Premium", Decimal("120.00"), "#8b5cf6"),
-    ("Standard", Decimal("60.00"), "#22c55e"),
-]
+def random_zone_presets() -> list[tuple[str, Decimal, str]]:
+    """Generate randomised zone prices within $10–$200 per event."""
+    std_price = Decimal(random.randint(10, 50))
+    prem_price = Decimal(random.randint(60, 120))
+    vip_price = Decimal(random.randint(130, 200))
+    return [
+        ("VIP", vip_price, "#ef4444"),
+        ("Premium", prem_price, "#8b5cf6"),
+        ("Standard", std_price, "#22c55e"),
+    ]
 
 
 async def create_event_with_layout(
@@ -119,6 +124,7 @@ async def create_event_with_layout(
     grid_rows: int,
     grid_cols: int,
     status: EventStatus,
+    category: str | None = None,
 ) -> tuple[Event, list[Zone], list[Seat]]:
     event = Event(
         venue_id=venue.id,
@@ -128,6 +134,7 @@ async def create_event_with_layout(
         status=status,
         grid_rows=grid_rows,
         grid_cols=grid_cols,
+        category=category,
     )
     db.add(event)
     await db.flush()
@@ -147,9 +154,10 @@ async def create_event_with_layout(
     db.add_all(seats)
     await db.flush()
 
+    zone_presets = random_zone_presets()
     zones = [
         Zone(event_id=event.id, name=n, price=p, color=c)
-        for (n, p, c) in ZONE_PRESETS
+        for (n, p, c) in zone_presets
     ]
     db.add_all(zones)
     await db.flush()
@@ -223,6 +231,32 @@ async def create_confirmed_booking(
     await db.commit()
 
 
+# ── 10 diverse events (title, category) ─────────────────────────────
+EVENT_CATALOGUE = [
+    ("Summer Music Fest", "Festival"),
+    ("Indie Night", "Concert"),
+    ("Retro Cinema", "Workshop"),
+    ("EDM Rave Night", "Concert"),
+    ("Jazz Under the Stars", "Concert"),
+    ("K-Pop Fan Meeting", "Festival"),
+    ("Acoustic Sunset Session", "Concert"),
+    ("Hip-Hop Block Party", "Festival"),
+    ("Classical Gala", "Theater"),
+    ("Rock the Arena", "Concert"),
+]
+
+MAX_BOOKING_RATIO = 0.6  # never fill more than 60 % of seats
+
+
+def _random_event_date() -> datetime:
+    """Return a random datetime between 1 Apr 2026 and 30 Jun 2026 (UTC)."""
+    start = datetime(2026, 4, 1, tzinfo=UTC)
+    end = datetime(2026, 6, 30, 23, 59, tzinfo=UTC)
+    delta = end - start
+    offset = timedelta(seconds=random.randint(0, int(delta.total_seconds())))
+    return start + offset
+
+
 async def main() -> None:
     async with async_session_maker() as db:
         await clear_existing_demo(db)
@@ -231,15 +265,19 @@ async def main() -> None:
         venues = await create_venues(db)
 
         now = datetime.now(UTC)
-        # Mix of upcoming + recently-past events
-        events_spec = [
-            ("Summer Music Fest", venues[0], now + timedelta(days=21), 8, 12, EventStatus.PUBLISHED),
-            ("Indie Night", venues[1], now + timedelta(days=7), 6, 10, EventStatus.PUBLISHED),
-            ("Retro Cinema", venues[0], now - timedelta(days=14), 8, 12, EventStatus.ENDED),
-        ]
 
-        events_with_layout = []
-        for title, venue, ev_date, rows, cols, status in events_spec:
+        # Build 10 events with random dates, grid sizes and auto-status
+        events_spec = []
+        for title, category in EVENT_CATALOGUE:
+            ev_date = _random_event_date()
+            status = EventStatus.ENDED if ev_date < now else EventStatus.PUBLISHED
+            rows = random.randint(6, 10)
+            cols = random.randint(10, 15)
+            venue = random.choice(venues)
+            events_spec.append((title, venue, ev_date, rows, cols, status, category))
+
+        events_with_layout: list[tuple[Event, list[Zone], list[Seat]]] = []
+        for title, venue, ev_date, rows, cols, status, category in events_spec:
             tpl = await create_event_with_layout(
                 db,
                 title=title,
@@ -248,15 +286,23 @@ async def main() -> None:
                 grid_rows=rows,
                 grid_cols=cols,
                 status=status,
+                category=category,
             )
             events_with_layout.append(tpl)
 
-        # Generate confirmed bookings across the last 30 days.
+        # Generate confirmed bookings, capped at 60 % of each event's capacity.
         print("Creating demo bookings…")
         booking_count = 0
-        for i in range(60):
+        sold_per_event: dict[str, int] = {}
+
+        for _i in range(150):  # attempt up to 150 bookings across 10 events
             user = random.choice(users)
             event, _zones, seats = random.choice(events_with_layout)
+
+            total_seats = len(seats)
+            max_sold = int(total_seats * MAX_BOOKING_RATIO)
+            already_sold = sold_per_event.get(str(event.id), 0)
+
             # Pick 1-4 free contiguous seats in the same row
             available = [
                 s for s in seats if s.status == SeatStatus.AVAILABLE and s.zone_id
@@ -264,6 +310,11 @@ async def main() -> None:
             if not available:
                 continue
             group_size = random.randint(1, 4)
+
+            # Don't exceed the 60 % cap
+            if already_sold + group_size > max_sold:
+                continue
+
             # Pick a row with enough free seats
             by_row: dict[int, list[Seat]] = {}
             for s in available:
@@ -285,6 +336,7 @@ async def main() -> None:
             await create_confirmed_booking(
                 db, user=user, event=event, seats=picked, paid_at=paid_at
             )
+            sold_per_event[str(event.id)] = already_sold + len(picked)
             booking_count += 1
 
         print(f"Seeded {len(users)} users, {len(venues)} venues, "
