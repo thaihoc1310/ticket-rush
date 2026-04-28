@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -87,6 +89,11 @@ async def update_me(
     db: AsyncSession = Depends(get_db),
 ) -> User:
     payload = data.model_dump(exclude_unset=True)
+    # Delete old avatar file from disk when avatar URL changes
+    if "avatar" in payload and user.avatar and user.avatar != payload["avatar"]:
+        old_path = Path(user.avatar.lstrip("/"))
+        if old_path.exists():
+            old_path.unlink(missing_ok=True)
     for field, value in payload.items():
         setattr(user, field, value)
     await db.commit()

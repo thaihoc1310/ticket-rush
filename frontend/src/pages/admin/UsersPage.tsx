@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -24,9 +24,21 @@ export function UsersPage() {
   });
   const [error, setError] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState<string | null>(null);
-  const [uploadingUserId, setUploadingUserId] = useState<string | null>(null);
+  
   const avatarRef = useRef<HTMLInputElement>(null);
-  const pendingUserIdRef = useRef<string | null>(null);
+
+  // Save changes state for upload API call
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Avatar preview state
+  const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    };
+  }, [avatarPreview]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin", "users"],
@@ -36,7 +48,7 @@ export function UsersPage() {
   const createMut = useMutation({
     mutationFn: (payload: UserCreatePayload) => userApi.create(payload),
     onSuccess: () => { closeModal(); qc.invalidateQueries({ queryKey: ["admin", "users"] }); },
-    onError: (err: unknown) => setError(err instanceof ApiError ? err.message : "Failed"),
+    onError: (err: unknown) => setError(err instanceof ApiError ? err.message : "Failed to create user"),
   });
 
   const updateMut = useMutation({
@@ -47,7 +59,7 @@ export function UsersPage() {
       if (editingUser && updated) setEditingUser(updated);
       closeModal();
     },
-    onError: (err: unknown) => setError(err instanceof ApiError ? err.message : "Failed"),
+    onError: (err: unknown) => setError(err instanceof ApiError ? err.message : "Failed to update user"),
   });
 
   const removeMut = useMutation({
@@ -55,30 +67,13 @@ export function UsersPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "users"] }),
   });
 
-  const avatarMut = useMutation({
-    mutationFn: ({ userId, file }: { userId: string; file: File }) =>
-      uploadApi.avatarFor(userId, file),
-    onMutate: ({ userId }) => {
-      setUploadingUserId(userId);
-      setAvatarError(null);
-    },
-    onSuccess: (result, { userId }) => {
-      qc.invalidateQueries({ queryKey: ["admin", "users"] });
-      if (editingUser && editingUser.id === userId) {
-        setEditingUser({ ...editingUser, avatar: result.avatar_url });
-      }
-    },
-    onError: (err: unknown) => {
-      setAvatarError(err instanceof ApiError ? err.message : "Upload failed");
-    },
-    onSettled: () => setUploadingUserId(null),
-  });
-
   const openCreate = () => {
     setEditingUser(null);
     setForm({ email: "", password: "", full_name: "", date_of_birth: null, gender: null, role: "CUSTOMER" });
     setError(null);
     setAvatarError(null);
+    setPendingAvatarFile(null);
+    setAvatarPreview(null);
     setModalOpen(true);
   };
 
@@ -94,6 +89,8 @@ export function UsersPage() {
     });
     setError(null);
     setAvatarError(null);
+    setPendingAvatarFile(null);
+    setAvatarPreview(null);
     setModalOpen(true);
   };
 
@@ -102,18 +99,41 @@ export function UsersPage() {
     setEditingUser(null);
     setError(null);
     setAvatarError(null);
+    setPendingAvatarFile(null);
+    if (avatarPreview) {
+      URL.revokeObjectURL(avatarPreview);
+      setAvatarPreview(null);
+    }
   };
 
-  const onSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
+    setAvatarError(null);
+    
     if (editingUser) {
+      let avatarUrl: string | undefined;
+      
+      if (pendingAvatarFile) {
+        setIsUploading(true);
+        try {
+          const { avatar_url } = await uploadApi.avatarFor(editingUser.id, pendingAvatarFile);
+          avatarUrl = avatar_url;
+        } catch (err) {
+          setAvatarError(err instanceof ApiError ? err.message : "Avatar upload failed.");
+          setIsUploading(false);
+          return;
+        }
+        setIsUploading(false);
+      }
+
       const payload: UserUpdatePayload = {
         email: form.email,
         full_name: form.full_name,
         date_of_birth: form.date_of_birth || undefined,
         gender: form.gender || undefined,
         role: form.role,
+        ...(avatarUrl !== undefined && { avatar: avatarUrl }),
       };
       if (form.password) payload.password = form.password;
       updateMut.mutate({ id: editingUser.id, payload });
@@ -122,23 +142,23 @@ export function UsersPage() {
     }
   };
 
-  const triggerAvatarUpload = (userId: string) => {
-    pendingUserIdRef.current = userId;
+  const triggerAvatarUpload = () => {
     setAvatarError(null);
     avatarRef.current?.click();
   };
 
   const onAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    const userId = pendingUserIdRef.current;
     e.target.value = "";
-    pendingUserIdRef.current = null;
-    if (!file || !userId) return;
-    avatarMut.mutate({ userId, file });
+    if (!file) return;
+
+    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    
+    setPendingAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
   };
 
   const users: User[] = data ?? [];
-  const avatarUploading = (userId: string) => uploadingUserId === userId;
 
   return (
     <div className="flex flex-col gap-6">
@@ -173,12 +193,8 @@ export function UsersPage() {
                   <tr key={u.id} className="border-t" style={{ borderColor: "var(--border-primary)" }}>
                     <td className="px-6 py-3">
                       <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => triggerAvatarUpload(u.id)}
-                          disabled={avatarUploading(u.id)}
-                          title="Change avatar"
-                          className="group relative h-9 w-9 overflow-hidden rounded-full border outline-none transition"
+                        <div
+                          className="h-9 w-9 overflow-hidden rounded-full border outline-none"
                           style={{ borderColor: "var(--border-primary)", background: "var(--accent-subtle)" }}
                         >
                           {u.avatar ? (
@@ -189,21 +205,7 @@ export function UsersPage() {
                               {u.full_name.charAt(0).toUpperCase()}
                             </span>
                           )}
-                          <span
-                            className="pointer-events-none absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-white opacity-0 transition group-hover:opacity-100"
-                            style={{ background: "rgba(0,0,0,0.55)" }}
-                          >
-                            Edit
-                          </span>
-                          {avatarUploading(u.id) && (
-                            <span
-                              className="absolute inset-0 flex items-center justify-center text-[10px] text-white"
-                              style={{ background: "rgba(0,0,0,0.6)" }}
-                            >
-                              …
-                            </span>
-                          )}
-                        </button>
+                        </div>
                         <span className="font-medium" style={{ color: "var(--text-primary)" }}>{u.full_name}</span>
                       </div>
                     </td>
@@ -235,12 +237,6 @@ export function UsersPage() {
         ) : (
           <p className="px-6 py-6 text-sm" style={{ color: "var(--text-muted)" }}>No users found.</p>
         )}
-        {avatarError && (
-          <p className="border-t px-6 py-3 text-sm"
-            style={{ borderColor: "var(--border-primary)", background: "var(--danger-bg)", color: "var(--danger)" }}>
-            {avatarError}
-          </p>
-        )}
       </section>
 
       <Modal open={modalOpen} onClose={closeModal} title={editingUser ? "Edit User" : "Create User"}>
@@ -250,18 +246,12 @@ export function UsersPage() {
               style={{ borderColor: "var(--border-primary)", background: "var(--bg-tertiary)" }}>
               <div className="relative h-16 w-16 overflow-hidden rounded-full border"
                 style={{ borderColor: "var(--border-primary)", background: "var(--accent-subtle)" }}>
-                {editingUser.avatar ? (
-                  <img src={editingUser.avatar} alt="" className="h-full w-full object-cover" />
+                {avatarPreview || editingUser.avatar ? (
+                  <img src={avatarPreview || editingUser.avatar!} alt="" className="h-full w-full object-cover" />
                 ) : (
                   <span className="flex h-full w-full items-center justify-center text-xl font-bold"
                     style={{ color: "var(--accent)" }}>
                     {editingUser.full_name.charAt(0).toUpperCase()}
-                  </span>
-                )}
-                {avatarUploading(editingUser.id) && (
-                  <span className="absolute inset-0 flex items-center justify-center text-xs text-white"
-                    style={{ background: "rgba(0,0,0,0.6)" }}>
-                    …
                   </span>
                 )}
               </div>
@@ -270,9 +260,8 @@ export function UsersPage() {
                 <p className="text-xs" style={{ color: "var(--text-muted)" }}>Change the user&apos;s profile photo.</p>
                 <div>
                   <Button type="button" variant="secondary"
-                    onClick={() => triggerAvatarUpload(editingUser.id)}
-                    disabled={avatarUploading(editingUser.id)}>
-                    {avatarUploading(editingUser.id) ? "Uploading…" : "Upload new"}
+                    onClick={triggerAvatarUpload}>
+                    Upload new
                   </Button>
                 </div>
               </div>
@@ -304,6 +293,7 @@ export function UsersPage() {
           </div>
           <Input label="Date of Birth" type="date" value={form.date_of_birth ?? ""}
             onChange={(e) => setForm({ ...form, date_of_birth: e.target.value || null })} />
+          
           {error && (
             <p className="sm:col-span-2 rounded-md px-3 py-2 text-sm"
               style={{ background: "var(--danger-bg)", color: "var(--danger)" }}>{error}</p>
@@ -312,9 +302,10 @@ export function UsersPage() {
             <p className="sm:col-span-2 rounded-md px-3 py-2 text-sm"
               style={{ background: "var(--danger-bg)", color: "var(--danger)" }}>{avatarError}</p>
           )}
+          
           <div className="sm:col-span-2 flex justify-end gap-3">
-            <Button variant="secondary" type="button" onClick={closeModal}>Cancel</Button>
-            <Button type="submit" loading={createMut.isPending || updateMut.isPending}>
+            <Button variant="secondary" type="button" onClick={closeModal} disabled={createMut.isPending || updateMut.isPending || isUploading}>Cancel</Button>
+            <Button type="submit" loading={createMut.isPending || updateMut.isPending || isUploading}>
               {editingUser ? "Save Changes" : "Create User"}
             </Button>
           </div>

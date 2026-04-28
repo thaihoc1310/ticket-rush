@@ -18,7 +18,7 @@ async def upload_avatar(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    url = await UploadService(db).upload_avatar(user.id, file)
+    url = await UploadService(db).upload_avatar_file(file)
     return {"avatar_url": url}
 
 
@@ -32,7 +32,7 @@ async def admin_upload_avatar(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
 ):
-    url = await UploadService(db).upload_avatar(user_id, file)
+    url = await UploadService(db).upload_avatar_file(file)
     return {"avatar_url": url}
 
 

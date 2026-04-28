@@ -54,6 +54,7 @@ class UserUpdate(BaseModel):
     gender: Gender | None = None
     role: Role | None = None
     password: str | None = Field(default=None, min_length=8, max_length=128)
+    avatar: str | None = None
 
 
 class ProfileUpdate(BaseModel):
@@ -62,6 +63,7 @@ class ProfileUpdate(BaseModel):
     full_name: str | None = Field(default=None, min_length=1, max_length=255)
     date_of_birth: date | None = None
     gender: Gender | None = None
+    avatar: str | None = None
 
 
 class ChangePasswordRequest(BaseModel):

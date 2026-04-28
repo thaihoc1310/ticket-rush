@@ -74,7 +74,26 @@ export function EventListPage() {
     queryFn: () => eventApi.list(query),
   });
 
-  const activeCount = countActive(filters, meta);
+  const [showPromo, setShowPromo] = useState(false);
+  const [promoEvent, setPromoEvent] = useState<{ id: string; img: string } | null>(null);
+
+  useEffect(() => {
+    if (data && data.length > 0) {
+      const hasSeen = sessionStorage.getItem("hasSeenPromo");
+      if (!hasSeen) {
+        const eventsWithImage = data
+          .map((e) => ({ id: e.id, img: mainImageUrl(e) }))
+          .filter((e) => e.img !== null) as { id: string; img: string }[];
+        
+        if (eventsWithImage.length > 0) {
+          const randomIndex = Math.floor(Math.random() * eventsWithImage.length);
+          setPromoEvent(eventsWithImage[randomIndex]);
+          setShowPromo(true);
+        }
+        sessionStorage.setItem("hasSeenPromo", "true");
+      }
+    }
+  }, [data]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -216,6 +235,41 @@ export function EventListPage() {
           })}
         </div>
       </section>
+
+      {showPromo && promoEvent && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-sm"
+          style={{ background: "rgba(0,0,0,0.8)" }}
+          onClick={() => setShowPromo(false)}
+        >
+          <div 
+            className="relative w-full max-w-4xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button 
+              className="absolute -right-2 -top-12 p-2 text-white transition hover:text-gray-300"
+              onClick={() => setShowPromo(false)}
+              aria-label="Close"
+            >
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+            <Link 
+              to={`/events/${promoEvent.id}`} 
+              className="block overflow-hidden rounded-2xl shadow-2xl transition hover:scale-[1.01]"
+            >
+              <img 
+                src={promoEvent.img} 
+                alt="Promo Event" 
+                className="max-h-[85vh] w-full object-contain"
+                style={{ background: "rgba(0,0,0,0.5)" }}
+              />
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

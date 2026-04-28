@@ -46,7 +46,13 @@ class UploadService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    async def upload_avatar_file(self, file: UploadFile) -> str:
+        """Validate and save avatar file to disk. Does NOT update the user record."""
+        _validate_image(file)
+        return _save_file(file, AVATAR_DIR)
+
     async def upload_avatar(self, user_id: UUID, file: UploadFile) -> str:
+        """Upload avatar AND persist to user record (used by admin endpoint)."""
         _validate_image(file)
         user = await self.db.get(User, user_id)
         if user is None:

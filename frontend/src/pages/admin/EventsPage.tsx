@@ -42,6 +42,7 @@ export function EventsPage() {
   const [galleryEvent, setGalleryEvent] = useState<EventSummary | null>(null);
   const [form, setForm] = useState(emptyForm());
   const [error, setError] = useState<string | null>(null);
+  const [statusConfirm, setStatusConfirm] = useState<{ id: string; title: string; status: EventStatus } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const venuesQ = useQuery({ queryKey: ["venues"], queryFn: venueApi.list });
@@ -231,9 +232,9 @@ export function EventsPage() {
                     <td className="px-6 py-3">
                       <select
                         value={e.status}
-                        onChange={(ev) =>
-                          updateStatus.mutate({ id: e.id, status: ev.target.value as EventStatus })
-                        }
+                        onChange={(ev) => {
+                          setStatusConfirm({ id: e.id, title: e.title, status: ev.target.value as EventStatus });
+                        }}
                         className="rounded-md border px-2 py-1 text-xs"
                         style={{
                           borderColor: "var(--border-primary)",
@@ -434,6 +435,31 @@ export function EventsPage() {
               ))}
             </div>
           )}
+        </div>
+      </Modal>
+
+      {/* Confirmation Modal */}
+      <Modal open={!!statusConfirm} onClose={() => setStatusConfirm(null)} title="Confirm Status Change" maxWidth="28rem">
+        <div className="flex flex-col gap-4">
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            Are you sure you want to change the status of <strong>{statusConfirm?.title}</strong> to <strong>{statusConfirm?.status}</strong>?
+          </p>
+          <div className="flex justify-end gap-3 mt-4">
+            <Button variant="secondary" onClick={() => setStatusConfirm(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (statusConfirm) {
+                  updateStatus.mutate({ id: statusConfirm.id, status: statusConfirm.status });
+                  setStatusConfirm(null);
+                }
+              }}
+              loading={updateStatus.isPending}
+            >
+              Confirm
+            </Button>
+          </div>
         </div>
       </Modal>
     </div>

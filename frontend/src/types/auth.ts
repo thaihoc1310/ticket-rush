@@ -46,12 +46,14 @@ export interface UserUpdatePayload {
   gender?: Gender | null;
   role?: Role;
   password?: string;
+  avatar?: string | null;
 }
 
 export interface ProfileUpdatePayload {
   full_name?: string;
   date_of_birth?: string | null;
   gender?: Gender | null;
+  avatar?: string | null;
 }
 
 export interface ChangePasswordPayload {
