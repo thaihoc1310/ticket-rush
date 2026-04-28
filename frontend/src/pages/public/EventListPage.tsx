@@ -39,6 +39,8 @@ export function EventListPage() {
 
   const [filters, setFilters] = useState<FilterState>(() => defaultFilter(meta));
 
+  const activeCount = useMemo(() => countActive(filters, meta), [filters, meta]);
+
   // Sync price range when meta first arrives
   useEffect(() => {
     if (meta) {

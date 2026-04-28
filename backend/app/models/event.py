@@ -9,6 +9,7 @@ from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 from app.utils.enums import EventStatus
 
 if TYPE_CHECKING:
+    from app.models.booking import Booking
     from app.models.event_image import EventImage
     from app.models.seat import Seat
     from app.models.venue import Venue
@@ -56,3 +57,4 @@ class Event(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         lazy="selectin",
         order_by="EventImage.display_order",
     )
+    bookings: Mapped[list["Booking"]] = relationship(back_populates="event")

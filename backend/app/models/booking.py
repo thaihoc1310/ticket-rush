@@ -9,9 +9,11 @@ from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 from app.utils.enums import BookingStatus
 
 if TYPE_CHECKING:
+    from app.models.event import Event
     from app.models.payment import Payment
     from app.models.seat import Seat
     from app.models.ticket import Ticket
+    from app.models.user import User
 
 
 class Booking(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -30,6 +32,9 @@ class Booking(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         nullable=False,
         index=True,
     )
+
+    user: Mapped["User"] = relationship(back_populates="bookings")
+    event: Mapped["Event"] = relationship(back_populates="bookings")
 
     items: Mapped[list["BookingItem"]] = relationship(
         back_populates="booking",

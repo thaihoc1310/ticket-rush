@@ -128,6 +128,28 @@ class BookingService:
                     "Seat is not assigned to a zone",
                 )
 
+        # existing_stmt = (
+        #     select(BookingItem)
+        #     .where(BookingItem.seat_id.in_(seat_ids))
+        #     .options(selectinload(BookingItem.booking))
+        # )
+        # existing_items = list((await self.db.execute(existing_stmt)).scalars().all())
+        # if existing_items:
+        #     booking = existing_items[0].booking
+        #     if (
+        #         booking
+        #         and booking.user_id == user_id
+        #         and booking.status == BookingStatus.PENDING
+        #         and booking.event_id == event_id
+        #         and all(item.booking_id == booking.id for item in existing_items)
+        #     ):
+        #         booking, event = await self._load_booking(booking.id)
+        #         return _to_booking_out(booking, event)
+        #     raise HTTPException(
+        #         status.HTTP_409_CONFLICT,
+        #         "One or more seats are already booked",
+        #     )
+
         total: Decimal = sum((s.zone.price for s in seats), Decimal(0))
         booking = Booking(
             user_id=user_id,
