@@ -24,8 +24,6 @@ class EventBase(BaseModel):
     sale_start_at: datetime | None = None
     banner_url: str | None = Field(default=None, max_length=500)
     status: EventStatus = EventStatus.DRAFT
-    grid_rows: int = Field(default=10, ge=1, le=100)
-    grid_cols: int = Field(default=15, ge=1, le=100)
     category: str | None = Field(default=None, max_length=60)
 
 
@@ -54,8 +52,6 @@ class EventSummary(BaseModel):
     banner_url: str | None
     status: EventStatus
     venue: VenueOut
-    grid_rows: int
-    grid_cols: int
     category: str | None = None
     images: list[EventImageOut] = []
 

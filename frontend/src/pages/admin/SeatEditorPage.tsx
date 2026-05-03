@@ -152,7 +152,7 @@ export function SeatEditorPage() {
         </h1>
         <p className="text-sm" style={{ color: "var(--text-muted)" }}>
           {event
-            ? `Grid ${event.grid_rows} rows × ${event.grid_cols} seats · ${assignedCount}/${seats.length} assigned`
+            ? `Grid ${event.venue.grid_rows} rows × ${event.venue.grid_cols} seats · ${assignedCount}/${seats.length} assigned`
             : "Loading…"}
           {" · "}Drag empty area to box-select · Shift to add
         </p>
@@ -303,8 +303,8 @@ export function SeatEditorPage() {
             {event ? (
               <SeatCanvas
                 seats={seats}
-                rows={event.grid_rows}
-                cols={event.grid_cols}
+                rows={event.venue.grid_rows}
+                cols={event.venue.grid_cols}
                 visualFor={visualFor}
                 colorFor={colorFor}
                 onSeatClick={toggleSeat}

@@ -15,6 +15,7 @@ class Venue(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     address: Mapped[str] = mapped_column(String(500), nullable=False)
     city: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
-    capacity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    grid_rows: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
+    grid_cols: Mapped[int] = mapped_column(Integer, nullable=False, default=15)
 
     events: Mapped[list["Event"]] = relationship(back_populates="venue")

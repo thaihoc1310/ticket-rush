@@ -104,7 +104,7 @@ ticket-rush/
 │       ├── models/                      # SQLAlchemy ORM models
 │       │   ├── base.py                  # DeclarativeBase, common mixins (TimestampMixin)
 │       │   ├── user.py                  # User model
-│       │   ├── venue.py                 # Venue model (name, address, city, capacity)
+│       │   ├── venue.py                 # Venue model (name, address, city, grid rows/cols)
 │       │   ├── event.py                 # Event model (venue_id FK)
 │       │   ├── zone.py                  # Zone model
 │       │   ├── seat.py                  # Seat model (status enum, locked_by, locked_at)
@@ -224,7 +224,8 @@ erDiagram
         varchar name
         varchar address
         varchar city
-        int capacity
+        int grid_rows
+        int grid_cols
         timestamp created_at
     }
 

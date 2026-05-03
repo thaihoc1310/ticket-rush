@@ -29,8 +29,6 @@ const emptyForm = (): EventCreatePayload => ({
   sale_start_at: "",
   banner_url: "",
   status: "DRAFT",
-  grid_rows: 10,
-  grid_cols: 15,
   category: "",
 });
 
@@ -133,8 +131,6 @@ export function EventsPage() {
       sale_start_at: e.sale_start_at ? new Date(e.sale_start_at).toISOString().slice(0, 16) : "",
       banner_url: e.banner_url ?? "",
       status: e.status,
-      grid_rows: e.grid_rows,
-      grid_cols: e.grid_cols,
       category: e.category ?? "",
     });
     setError(null);
@@ -166,8 +162,6 @@ export function EventsPage() {
       sale_start_at: form.sale_start_at ? fromLocalInput(form.sale_start_at) : null,
       banner_url: form.banner_url || null,
       status: form.status,
-      grid_rows: Number(form.grid_rows) || 10,
-      grid_cols: Number(form.grid_cols) || 15,
       category: form.category || null,
     };
     if (editingEvent) {
@@ -225,6 +219,9 @@ export function EventsPage() {
                     <td className="px-6 py-3 font-medium" style={{ color: "var(--text-primary)" }}>{e.title}</td>
                     <td className="px-6 py-3" style={{ color: "var(--text-secondary)" }}>
                       {e.venue.name} · {e.venue.city}
+                      <span className="block text-xs" style={{ color: "var(--text-muted)" }}>
+                        {e.venue.grid_rows} x {e.venue.grid_cols} seats
+                      </span>
                     </td>
                     <td className="px-6 py-3" style={{ color: "var(--text-secondary)" }}>
                       {formatDateTime(e.event_date)}
@@ -298,7 +295,9 @@ export function EventsPage() {
             >
               <option value="">Select a venue…</option>
               {venues.map((v) => (
-                <option key={v.id} value={v.id}>{v.name} — {v.city}</option>
+                <option key={v.id} value={v.id}>
+                  {v.name} — {v.city} ({v.grid_rows} x {v.grid_cols})
+                </option>
               ))}
             </select>
           </div>
@@ -347,14 +346,6 @@ export function EventsPage() {
               ))}
             </select>
           </div>
-          {!editingEvent && (
-            <>
-              <Input label="Grid rows" type="number" min={1} max={100} required value={form.grid_rows}
-                onChange={(e) => setForm({ ...form, grid_rows: Number(e.target.value) })} />
-              <Input label="Seats per row" type="number" min={1} max={100} required value={form.grid_cols}
-                onChange={(e) => setForm({ ...form, grid_cols: Number(e.target.value) })} />
-            </>
-          )}
           <div className="sm:col-span-2 flex flex-col gap-1.5">
             <label className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>Description</label>
             <textarea

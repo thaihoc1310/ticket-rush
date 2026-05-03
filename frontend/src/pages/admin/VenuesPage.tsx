@@ -7,7 +7,13 @@ import { Modal } from "@/components/ui/Modal";
 import { ApiError, venueApi } from "@/services/api";
 import type { Venue, VenueCreatePayload } from "@/types/catalog";
 
-const EMPTY: VenueCreatePayload = { name: "", address: "", city: "", capacity: 0 };
+const EMPTY: VenueCreatePayload = {
+  name: "",
+  address: "",
+  city: "",
+  grid_rows: 10,
+  grid_cols: 15,
+};
 
 export function VenuesPage() {
   const qc = useQueryClient();
@@ -58,7 +64,13 @@ export function VenuesPage() {
 
   const openEdit = (v: Venue) => {
     setEditingVenue(v);
-    setForm({ name: v.name, address: v.address, city: v.city, capacity: v.capacity });
+    setForm({
+      name: v.name,
+      address: v.address,
+      city: v.city,
+      grid_rows: v.grid_rows,
+      grid_cols: v.grid_cols,
+    });
     setError(null);
     setModalOpen(true);
   };
@@ -73,7 +85,11 @@ export function VenuesPage() {
   const onSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
-    const payload = { ...form, capacity: Number(form.capacity) || 0 };
+    const payload = {
+      ...form,
+      grid_rows: Number(form.grid_rows) || 1,
+      grid_cols: Number(form.grid_cols) || 1,
+    };
     if (editingVenue) {
       update.mutate({ id: editingVenue.id, payload });
     } else {
@@ -106,7 +122,8 @@ export function VenuesPage() {
                 <th className="px-6 py-3">Name</th>
                 <th className="px-6 py-3">City</th>
                 <th className="px-6 py-3">Address</th>
-                <th className="px-6 py-3">Capacity</th>
+                <th className="px-6 py-3">Layout</th>
+                <th className="px-6 py-3">Seats</th>
                 <th className="px-6 py-3" />
               </tr>
             </thead>
@@ -116,7 +133,8 @@ export function VenuesPage() {
                   <td className="px-6 py-3 font-medium" style={{ color: "var(--text-primary)" }}>{v.name}</td>
                   <td className="px-6 py-3" style={{ color: "var(--text-secondary)" }}>{v.city}</td>
                   <td className="px-6 py-3" style={{ color: "var(--text-secondary)" }}>{v.address}</td>
-                  <td className="px-6 py-3" style={{ color: "var(--text-secondary)" }}>{v.capacity}</td>
+                  <td className="px-6 py-3" style={{ color: "var(--text-secondary)" }}>{v.grid_rows} x {v.grid_cols}</td>
+                  <td className="px-6 py-3" style={{ color: "var(--text-secondary)" }}>{v.grid_rows * v.grid_cols}</td>
                   <td className="px-6 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <Button variant="secondary" onClick={() => openEdit(v)}>Edit</Button>
@@ -144,7 +162,8 @@ export function VenuesPage() {
           <div className="sm:col-span-2">
             <Input label="Address" required value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
           </div>
-          <Input label="Capacity" type="number" min={0} value={form.capacity} onChange={(e) => setForm({ ...form, capacity: Number(e.target.value) })} />
+          <Input label="Rows" type="number" min={1} max={100} required value={form.grid_rows} onChange={(e) => setForm({ ...form, grid_rows: Number(e.target.value) })} />
+          <Input label="Seats per row" type="number" min={1} max={100} required value={form.grid_cols} onChange={(e) => setForm({ ...form, grid_cols: Number(e.target.value) })} />
           {error && (
             <p className="sm:col-span-2 rounded-md px-3 py-2 text-sm" style={{ background: "var(--danger-bg)", color: "var(--danger)" }}>
               {error}

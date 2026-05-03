@@ -1,44 +1,17 @@
-import { useRef, useState } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 
 import { ThemeToggle } from "@/components/ui/ThemeProvider";
 import { useAuth } from "@/hooks/useAuth";
-import { ApiError, uploadApi } from "@/services/api";
-import { useAuthStore } from "@/store/authStore";
 
 import { UserMenu } from "./UserMenu";
 
 export function AppShell() {
   const { user, status, logout } = useAuth();
   const navigate = useNavigate();
-  const avatarInputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const onLogout = async () => {
     await logout();
     navigate("/login", { replace: true });
-  };
-
-  const onPickAvatar = () => {
-    setUploadError(null);
-    avatarInputRef.current?.click();
-  };
-
-  const onAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file || !user) return;
-    setUploading(true);
-    setUploadError(null);
-    try {
-      const { avatar_url } = await uploadApi.avatar(file);
-      useAuthStore.getState().setUser({ ...user, avatar: avatar_url });
-    } catch (err) {
-      setUploadError(err instanceof ApiError ? err.message : "Upload failed");
-    } finally {
-      setUploading(false);
-    }
   };
 
   return (
@@ -82,15 +55,6 @@ export function AppShell() {
                 <UserMenu
                   user={user}
                   onLogout={onLogout}
-                  onAvatarClick={onPickAvatar}
-                  uploading={uploading}
-                />
-                <input
-                  ref={avatarInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={onAvatarChange}
                 />
               </>
             ) : (
@@ -114,14 +78,6 @@ export function AppShell() {
             <ThemeToggle />
           </div>
         </div>
-        {uploadError && (
-          <div
-            className="mx-auto max-w-6xl px-4 pb-2 text-xs"
-            style={{ color: "var(--danger)" }}
-          >
-            {uploadError}
-          </div>
-        )}
       </header>
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
         <Outlet />

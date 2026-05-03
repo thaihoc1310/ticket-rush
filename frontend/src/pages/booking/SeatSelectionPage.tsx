@@ -222,8 +222,8 @@ export function SeatSelectionPage() {
           >
             <SeatCanvas
               seats={seatsArray}
-              rows={event.grid_rows}
-              cols={event.grid_cols}
+              rows={event.venue.grid_rows}
+              cols={event.venue.grid_cols}
               visualFor={visualFor}
               colorFor={colorFor}
               onSeatClick={onSeatClick}

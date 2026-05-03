@@ -3,9 +3,9 @@
 Creates:
   - 1 admin + N customers with varied ages/genders
   - 2 venues
-  - 10 events (mix of upcoming + past, Apr–Jun 2026) with randomised grids
+  - 10 events (mix of upcoming + past, Apr-Jun 2026) using venue grids
   - Multiple zones per event with prices spread $10–$200
-  - CONFIRMED bookings (≤60 % capacity so seats always remain available)
+  - CONFIRMED bookings capped at 60 % of seats so seats always remain available
 
 Usage:
     uv run python -m scripts.seed_demo
@@ -93,8 +93,20 @@ async def create_users(db) -> list[User]:
 
 async def create_venues(db) -> list[Venue]:
     venues = [
-        Venue(name="Grand Arena", address="1 Main St", city="Hanoi", capacity=2000),
-        Venue(name="Skyline Hall", address="10 River Rd", city="Ho Chi Minh City", capacity=1200),
+        Venue(
+            name="Grand Arena",
+            address="1 Main St",
+            city="Hanoi",
+            grid_rows=10,
+            grid_cols=15,
+        ),
+        Venue(
+            name="Skyline Hall",
+            address="10 River Rd",
+            city="Ho Chi Minh City",
+            grid_rows=8,
+            grid_cols=12,
+        ),
     ]
     db.add_all(venues)
     await db.commit()
@@ -121,8 +133,6 @@ async def create_event_with_layout(
     title: str,
     venue: Venue,
     event_date: datetime,
-    grid_rows: int,
-    grid_cols: int,
     status: EventStatus,
     category: str | None = None,
 ) -> tuple[Event, list[Zone], list[Seat]]:
@@ -132,16 +142,14 @@ async def create_event_with_layout(
         description=f"{title} at {venue.name}.",
         event_date=event_date,
         status=status,
-        grid_rows=grid_rows,
-        grid_cols=grid_cols,
         category=category,
     )
     db.add(event)
     await db.flush()
 
     seats: list[Seat] = []
-    for r in range(1, grid_rows + 1):
-        for c in range(1, grid_cols + 1):
+    for r in range(1, venue.grid_rows + 1):
+        for c in range(1, venue.grid_cols + 1):
             seats.append(
                 Seat(
                     event_id=event.id,
@@ -266,31 +274,27 @@ async def main() -> None:
 
         now = datetime.now(UTC)
 
-        # Build 10 events with random dates, grid sizes and auto-status
+        # Build 10 events with random dates, venue layouts and auto-status
         events_spec = []
         for title, category in EVENT_CATALOGUE:
             ev_date = _random_event_date()
             status = EventStatus.ENDED if ev_date < now else EventStatus.PUBLISHED
-            rows = random.randint(6, 10)
-            cols = random.randint(10, 15)
             venue = random.choice(venues)
-            events_spec.append((title, venue, ev_date, rows, cols, status, category))
+            events_spec.append((title, venue, ev_date, status, category))
 
         events_with_layout: list[tuple[Event, list[Zone], list[Seat]]] = []
-        for title, venue, ev_date, rows, cols, status, category in events_spec:
+        for title, venue, ev_date, status, category in events_spec:
             tpl = await create_event_with_layout(
                 db,
                 title=title,
                 venue=venue,
                 event_date=ev_date,
-                grid_rows=rows,
-                grid_cols=cols,
                 status=status,
                 category=category,
             )
             events_with_layout.append(tpl)
 
-        # Generate confirmed bookings, capped at 60 % of each event's capacity.
+        # Generate confirmed bookings, capped at 60 % of each event's seats.
         print("Creating demo bookings…")
         booking_count = 0
         sold_per_event: dict[str, int] = {}

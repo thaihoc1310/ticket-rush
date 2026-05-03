@@ -5,14 +5,16 @@ export interface Venue {
   name: string;
   address: string;
   city: string;
-  capacity: number;
+  grid_rows: number;
+  grid_cols: number;
 }
 
 export interface VenueCreatePayload {
   name: string;
   address: string;
   city: string;
-  capacity: number;
+  grid_rows: number;
+  grid_cols: number;
 }
 
 export interface EventImage {
@@ -31,8 +33,6 @@ export interface EventSummary {
   banner_url: string | null;
   status: EventStatus;
   venue: Venue;
-  grid_rows: number;
-  grid_cols: number;
   category: string | null;
   images: EventImage[];
 }
@@ -45,8 +45,6 @@ export interface EventCreatePayload {
   sale_start_at?: string | null;
   banner_url?: string | null;
   status?: EventStatus;
-  grid_rows: number;
-  grid_cols: number;
   category?: string | null;
 }
 

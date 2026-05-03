@@ -6,11 +6,9 @@ import type { User } from "@/types/auth";
 interface Props {
   user: User;
   onLogout: () => void;
-  onAvatarClick?: () => void;
-  uploading?: boolean;
 }
 
-export function UserMenu({ user, onLogout, onAvatarClick, uploading }: Props) {
+export function UserMenu({ user, onLogout }: Props) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -47,7 +45,6 @@ export function UserMenu({ user, onLogout, onAvatarClick, uploading }: Props) {
           ) : (
             <span className="user-menu-initials">{initials}</span>
           )}
-          {uploading && <span className="user-menu-avatar-overlay">…</span>}
         </span>
         <span className="user-menu-name">{user.full_name}</span>
         <svg
@@ -107,7 +104,7 @@ export function UserMenu({ user, onLogout, onAvatarClick, uploading }: Props) {
   );
 }
 
-function MenuIcon({ name }: { name: "user" | "ticket" | "logout" | "camera" }) {
+function MenuIcon({ name }: { name: "user" | "ticket" | "logout" }) {
   const common = {
     width: 16,
     height: 16,
@@ -131,13 +128,6 @@ function MenuIcon({ name }: { name: "user" | "ticket" | "logout" | "camera" }) {
       <svg {...common}>
         <path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V8z" />
         <line x1="13" y1="6" x2="13" y2="18" />
-      </svg>
-    );
-  if (name === "camera")
-    return (
-      <svg {...common}>
-        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-        <circle cx="12" cy="13" r="4" />
       </svg>
     );
   return (

@@ -7,11 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.event import Event
-from app.models.seat import Seat
 from app.models.venue import Venue
 from app.models.zone import Zone
 from app.schemas.event import EventCreate, EventUpdate, FilterMeta
-from app.utils.enums import EventStatus, SeatStatus
+from app.services.seat_layout_service import sync_event_seats_to_layout
+from app.utils.enums import EventStatus
 
 
 class EventService:
@@ -120,41 +120,48 @@ class EventService:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Event not found")
         return event
 
-    async def _ensure_venue(self, venue_id: UUID) -> None:
+    async def _ensure_venue(self, venue_id: UUID) -> Venue:
         venue = await self.db.get(Venue, venue_id)
         if venue is None:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Venue does not exist")
+        return venue
 
     async def create(self, data: EventCreate) -> Event:
-        await self._ensure_venue(data.venue_id)
+        venue = await self._ensure_venue(data.venue_id)
         event = Event(**data.model_dump())
         self.db.add(event)
         await self.db.flush()
 
-        # Auto-generate seats for every position in the master grid.
+        # Auto-generate seats for every position in the venue layout.
         # Seats start with zone_id=NULL; admin assigns zones via bulk endpoint.
-        seats = [
-            Seat(
-                event_id=event.id,
-                zone_id=None,
-                row_number=row,
-                seat_number=col,
-                status=SeatStatus.AVAILABLE,
-            )
-            for row in range(1, event.grid_rows + 1)
-            for col in range(1, event.grid_cols + 1)
-        ]
-        self.db.add_all(seats)
+        await sync_event_seats_to_layout(
+            self.db,
+            event_id=event.id,
+            grid_rows=venue.grid_rows,
+            grid_cols=venue.grid_cols,
+        )
         await self.db.commit()
         return await self.get(event.id)
 
     async def update(self, event_id: UUID, data: EventUpdate) -> Event:
         event = await self.get(event_id)
         payload = data.model_dump(exclude_unset=True)
-        if "venue_id" in payload and payload["venue_id"] is not None:
-            await self._ensure_venue(payload["venue_id"])
+        new_venue: Venue | None = None
+        if "venue_id" in payload:
+            if payload["venue_id"] is None:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST, "Venue cannot be empty"
+                )
+            new_venue = await self._ensure_venue(payload["venue_id"])
         for field, value in payload.items():
             setattr(event, field, value)
+        if new_venue is not None:
+            await sync_event_seats_to_layout(
+                self.db,
+                event_id=event.id,
+                grid_rows=new_venue.grid_rows,
+                grid_cols=new_venue.grid_cols,
+            )
         await self.db.commit()
         return await self.get(event_id)
 
