@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { EventStatus, FilterMeta } from "@/types/catalog";
+import { useAuthStore } from "@/store/authStore";
 
 /* ─── Public filter state shared with parent ─── */
 export interface FilterState {
@@ -10,7 +11,7 @@ export interface FilterState {
   status: EventStatus | "";
 }
 
-export const defaultFilter = (meta?: FilterMeta): FilterState => ({
+export const defaultFilter = (meta?: FilterMeta, isAdmin: boolean = false): FilterState => ({
   dateRange: { startDate: null, endDate: null },
   priceRange: {
     min: meta?.min_price ?? 0,
@@ -18,7 +19,7 @@ export const defaultFilter = (meta?: FilterMeta): FilterState => ({
   },
   locations: [],
   categories: [],
-  status: "",
+  status: isAdmin ? "" : "PUBLISHED",
 });
 
 interface Props {
@@ -33,6 +34,9 @@ interface Props {
    FILTER MODAL
    ═══════════════════════════════════════════════════════════════════ */
 export function FilterModal({ open, onClose, onApply, meta, initial }: Props) {
+  const user = useAuthStore((state) => state.user);
+  const isAdmin = user?.role === "ADMIN";
+
   const [state, setState] = useState<FilterState>(initial);
   const overlayRef = useRef<HTMLDivElement>(null);
 
@@ -53,7 +57,7 @@ export function FilterModal({ open, onClose, onApply, meta, initial }: Props) {
         : [...s[key], val],
     }));
 
-  const reset = () => setState(defaultFilter(meta));
+  const reset = () => setState(defaultFilter(meta, isAdmin));
   const apply = () => { onApply(state); onClose(); };
 
   // --- keyboard / scroll lock -----------------------------------------
@@ -134,7 +138,7 @@ export function FilterModal({ open, onClose, onApply, meta, initial }: Props) {
           {/* ── Status ── */}
           <Section title="Status">
             <PillGroup
-              items={["PUBLISHED", "DRAFT", "ENDED"]}
+              items={isAdmin ? ["PUBLISHED", "DRAFT", "ENDED"] : ["PUBLISHED", "ENDED"]}
               selected={state.status ? [state.status] : []}
               onToggle={(v) => patch("status", state.status === v ? "" : (v as EventStatus))}
             />

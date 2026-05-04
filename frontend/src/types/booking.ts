@@ -59,8 +59,13 @@ export interface Ticket {
   qr_image: string;
   status: TicketStatus;
   issued_at: string;
+  event_id: string;
   event_title: string;
+  event_status: string;
   event_date: string;
+  venue_name: string;
+  venue_address: string;
+  price: string;
   zone_name: string;
   row_number: number;
   seat_number: number;

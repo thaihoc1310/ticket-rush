@@ -151,11 +151,31 @@ export function SeatCanvas({
   colorFor,
   onSeatClick,
   onMarqueeSelect,
-  width = 900,
-  height = 560,
+  width: initialWidth = 900,
+  height: initialHeight = 560,
 }: SeatCanvasProps) {
   const { theme } = useTheme();
   const colors = useMemo(() => getThemeColors(theme), [theme]);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dim, setDim] = useState({ w: initialWidth, h: initialHeight });
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      if (entries[0]) {
+        const { width, height } = entries[0].contentRect;
+        if (width > 0 && height > 0) {
+          setDim({ w: width, h: height });
+        }
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const width = dim.w;
+  const height = dim.h;
 
   const stageRef = useRef<{
     getPointerPosition: () => { x: number; y: number } | null;
@@ -326,7 +346,8 @@ export function SeatCanvas({
 
   return (
     <div
-      className="relative overflow-hidden rounded-2xl border shadow-sm"
+      ref={containerRef}
+      className="relative overflow-hidden rounded-2xl border shadow-sm w-full"
       style={{
         borderColor: "var(--border-primary)",
         background: `linear-gradient(135deg, ${colors.bgA} 0%, ${colors.bgB} 100%)`,

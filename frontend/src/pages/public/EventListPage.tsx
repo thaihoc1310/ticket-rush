@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 
 import { FilterModal, defaultFilter, type FilterState } from "@/components/FilterModal";
 import { eventApi } from "@/services/api";
+import { useAuthStore } from "@/store/authStore";
 import type { EventListQuery, EventSummary } from "@/types/catalog";
 import { formatDateTime } from "@/utils/format";
 
@@ -37,7 +38,10 @@ export function EventListPage() {
   });
   const meta = metaQ.data;
 
-  const [filters, setFilters] = useState<FilterState>(() => defaultFilter(meta));
+  const user = useAuthStore((state) => state.user);
+  const isAdmin = user?.role === "ADMIN";
+
+  const [filters, setFilters] = useState<FilterState>(() => defaultFilter(meta, isAdmin));
 
   const activeCount = useMemo(() => countActive(filters, meta), [filters, meta]);
 
@@ -78,6 +82,18 @@ export function EventListPage() {
 
   const [showPromo, setShowPromo] = useState(false);
   const [promoEvent, setPromoEvent] = useState<{ id: string; img: string } | null>(null);
+
+  // Block body scroll when promo popup is open
+  useEffect(() => {
+    if (showPromo) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [showPromo]);
 
   useEffect(() => {
     if (data && data.length > 0) {
@@ -241,11 +257,12 @@ export function EventListPage() {
       {showPromo && promoEvent && (
         <div 
           className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-sm"
-          style={{ background: "rgba(0,0,0,0.8)" }}
+          style={{ background: "rgba(0,0,0,0.8)", animation: "fadeIn 0.2s ease-out" }}
           onClick={() => setShowPromo(false)}
         >
           <div 
             className="relative w-full max-w-4xl"
+            style={{ animation: "slideUp 0.3s ease-out" }}
             onClick={(e) => e.stopPropagation()}
           >
             <button 

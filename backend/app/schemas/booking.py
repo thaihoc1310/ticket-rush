@@ -55,8 +55,13 @@ class TicketOut(BaseModel):
     qr_image: str  # data-URL PNG
     status: TicketStatus
     issued_at: datetime
+    event_id: UUID
     event_title: str
+    event_status: str
     event_date: datetime
+    venue_name: str
+    venue_address: str
+    price: Decimal
     zone_name: str
     row_number: int
     seat_number: int
