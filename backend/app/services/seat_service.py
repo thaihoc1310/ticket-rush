@@ -11,7 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.seat import Seat
-from app.utils.enums import SeatStatus
+from app.models.ticket import Ticket
+from app.models.booking import Booking, BookingItem
+from app.utils.enums import SeatStatus, TicketStatus
 
 log = logging.getLogger(__name__)
 
@@ -19,6 +21,8 @@ log = logging.getLogger(__name__)
 LOCK_TTL_SECONDS = 10 * 60
 # Redis micro-lock for the lock operation itself (filters 99.9% of contention).
 REDIS_GUARD_TTL = 5
+
+MAX_TICKETS_PER_USER = 8
 
 
 def _seat_channel(event_id: UUID) -> str:
@@ -108,6 +112,37 @@ class SeatService:
             if seat.status != SeatStatus.AVAILABLE:
                 await self.db.rollback()
                 raise HTTPException(status.HTTP_409_CONFLICT, "Seat unavailable")
+
+            # Check if user has reached the maximum ticket limit (8)
+            from sqlalchemy import func
+            # 1. Count seats currently locked by user for this event
+            locked_stmt = select(func.count()).select_from(Seat).where(
+                Seat.event_id == seat.event_id,
+                Seat.status == SeatStatus.LOCKED,
+                Seat.locked_by == user_id,
+            )
+            locked_count = (await self.db.execute(locked_stmt)).scalar_one()
+
+            # 2. Count valid/used tickets owned by user for this event
+            ticket_stmt = (
+                select(func.count())
+                .select_from(Ticket)
+                .join(BookingItem, Ticket.booking_item_id == BookingItem.id)
+                .join(Booking, BookingItem.booking_id == Booking.id)
+                .where(
+                    Booking.event_id == seat.event_id,
+                    Booking.user_id == user_id,
+                    Ticket.status.in_([TicketStatus.VALID, TicketStatus.USED])
+                )
+            )
+            ticket_count = (await self.db.execute(ticket_stmt)).scalar_one()
+
+            if locked_count + ticket_count >= MAX_TICKETS_PER_USER:
+                await self.db.rollback()
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    f"LIMIT_REACHED: You can only own a maximum of {MAX_TICKETS_PER_USER} tickets for this event (including currently selected seats and purchased tickets).",
+                )
 
             seat.status = SeatStatus.LOCKED
             seat.locked_by = user_id

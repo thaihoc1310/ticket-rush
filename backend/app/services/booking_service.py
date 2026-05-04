@@ -20,8 +20,9 @@ from app.schemas.booking import (
     BookingOut,
     PaymentOut,
 )
-from app.services.seat_service import LOCK_TTL_SECONDS
-from app.utils.enums import BookingStatus, SeatStatus
+from app.services.seat_service import LOCK_TTL_SECONDS, MAX_TICKETS_PER_USER
+from app.utils.enums import BookingStatus, SeatStatus, TicketStatus
+from app.models.ticket import Ticket
 
 
 def _to_booking_out(booking: Booking, event: Event) -> BookingOut:
@@ -127,6 +128,27 @@ class BookingService:
                     status.HTTP_400_BAD_REQUEST,
                     "Seat is not assigned to a zone",
                 )
+
+        from sqlalchemy import func
+        # Count existing valid/used tickets for this event
+        ticket_stmt = (
+            select(func.count())
+            .select_from(Ticket)
+            .join(BookingItem, Ticket.booking_item_id == BookingItem.id)
+            .join(Booking, BookingItem.booking_id == Booking.id)
+            .where(
+                Booking.event_id == event_id,
+                Booking.user_id == user_id,
+                Ticket.status.in_([TicketStatus.VALID, TicketStatus.USED])
+            )
+        )
+        ticket_count = (await self.db.execute(ticket_stmt)).scalar_one()
+
+        if len(seat_ids) + ticket_count > MAX_TICKETS_PER_USER:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                f"LIMIT_REACHED: You can only own a maximum of {MAX_TICKETS_PER_USER} tickets for this event.",
+            )
 
         # existing_stmt = (
         #     select(BookingItem)

@@ -146,6 +146,17 @@ class EventService:
     async def update(self, event_id: UUID, data: EventUpdate) -> Event:
         event = await self.get(event_id)
         payload = data.model_dump(exclude_unset=True)
+
+        if "status" in payload:
+            new_status = payload["status"]
+            if event.status == EventStatus.ENDED and new_status != EventStatus.ENDED:
+                now = datetime.now(event.event_date.tzinfo) if event.event_date.tzinfo else datetime.now()
+                if event.event_date <= now:
+                    raise HTTPException(
+                        status.HTTP_400_BAD_REQUEST, 
+                        "Cannot change status of an ended event because its date has already passed."
+                    )
+
         new_venue: Venue | None = None
         if "venue_id" in payload:
             if payload["venue_id"] is None:
