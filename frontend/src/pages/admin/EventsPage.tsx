@@ -1,7 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState, type FormEvent } from "react";
+import { useMemo, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
+import { AdminActionBar } from "@/components/admin/AdminActionBar";
+import {
+  AdminFilterModal,
+  countActiveFilters,
+  defaultValues,
+  type FilterFieldConfig,
+  type FilterValues,
+} from "@/components/admin/AdminFilterModal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
@@ -16,6 +24,12 @@ import { formatDateTime } from "@/utils/format";
 
 const STATUSES: EventStatus[] = ["DRAFT", "PUBLISHED", "ENDED"];
 const CATEGORIES = ["Concert", "Workshop", "Festival", "Theater"];
+
+const FILTER_FIELDS: FilterFieldConfig[] = [
+  { key: "date", label: "Date", type: "dateRange" },
+  { key: "status", label: "Status", type: "pills", options: STATUSES, single: true },
+  { key: "category", label: "Category", type: "pills", options: CATEGORIES },
+];
 
 function fromLocalInput(value: string): string {
   return new Date(value).toISOString();
@@ -42,6 +56,11 @@ export function EventsPage() {
   const [error, setError] = useState<string | null>(null);
   const [statusConfirm, setStatusConfirm] = useState<{ id: string; title: string; status: EventStatus } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Search & Filter ──
+  const [search, setSearch] = useState("");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterValues, setFilterValues] = useState<FilterValues>(defaultValues(FILTER_FIELDS));
 
   const venuesQ = useQuery({ queryKey: ["venues"], queryFn: venueApi.list });
   const eventsQ = useQuery({
@@ -183,6 +202,41 @@ export function EventsPage() {
     ? (events.find((e) => e.id === galleryEvent.id)?.images ?? [])
     : [];
 
+  // ── Filtered events ──
+  const filteredEvents = useMemo(() => {
+    let list = events;
+    // Text search
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(
+        (e) =>
+          e.title.toLowerCase().includes(q) ||
+          e.venue.name.toLowerCase().includes(q),
+      );
+    }
+    // Date range
+    const dr = filterValues.date as { startDate: string | null; endDate: string | null } | undefined;
+    if (dr?.startDate) {
+      list = list.filter((e) => e.event_date.slice(0, 10) >= dr.startDate!);
+    }
+    if (dr?.endDate) {
+      list = list.filter((e) => e.event_date.slice(0, 10) <= dr.endDate!);
+    }
+    // Status
+    const status = filterValues.status as string;
+    if (status) {
+      list = list.filter((e) => e.status === status);
+    }
+    // Category
+    const cats = filterValues.category as string[];
+    if (cats && cats.length > 0) {
+      list = list.filter((e) => e.category && cats.includes(e.category));
+    }
+    return list;
+  }, [events, search, filterValues]);
+
+  const filterCount = countActiveFilters(FILTER_FIELDS, filterValues);
+
   return (
     <div className="flex flex-col gap-6">
       <header className="flex items-center justify-between">
@@ -195,13 +249,29 @@ export function EventsPage() {
         <Button onClick={openCreate} disabled={venues.length === 0}>+ Create Event</Button>
       </header>
 
+      <AdminActionBar
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search events…"
+        filterCount={filterCount}
+        onFilterClick={() => setFilterOpen(true)}
+      />
+
+      <AdminFilterModal
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        fields={FILTER_FIELDS}
+        values={filterValues}
+        onApply={setFilterValues}
+      />
+
       <section className="rounded-2xl border" style={{ borderColor: "var(--border-primary)", background: "var(--bg-secondary)" }}>
         <div className="border-b px-6 py-4" style={{ borderColor: "var(--border-primary)" }}>
           <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>All events</h2>
         </div>
         {eventsQ.isLoading ? (
           <p className="px-6 py-6 text-sm" style={{ color: "var(--text-muted)" }}>Loading…</p>
-        ) : events.length ? (
+        ) : filteredEvents.length ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead style={{ background: "var(--bg-tertiary)" }}>
@@ -214,7 +284,7 @@ export function EventsPage() {
                 </tr>
               </thead>
               <tbody>
-                {events.map((e) => (
+                {filteredEvents.map((e) => (
                   <tr key={e.id} className="border-t" style={{ borderColor: "var(--border-primary)" }}>
                     <td className="px-6 py-3 font-medium" style={{ color: "var(--text-primary)" }}>{e.title}</td>
                     <td className="px-6 py-3" style={{ color: "var(--text-secondary)" }}>

@@ -1,6 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 
+import { AdminActionBar } from "@/components/admin/AdminActionBar";
+import {
+  AdminFilterModal,
+  countActiveFilters,
+  defaultValues,
+  type FilterFieldConfig,
+  type FilterValues,
+} from "@/components/admin/AdminFilterModal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
@@ -22,10 +30,60 @@ export function VenuesPage() {
   const [form, setForm] = useState<VenueCreatePayload>(EMPTY);
   const [error, setError] = useState<string | null>(null);
 
+  // ── Search & Filter ──
+  const [search, setSearch] = useState("");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterValues, setFilterValues] = useState<FilterValues>({});
+
   const { data, isLoading } = useQuery({
     queryKey: ["venues"],
     queryFn: venueApi.list,
   });
+
+  const venues: Venue[] = data ?? [];
+
+  // Derive unique cities from data for dynamic pills
+  const uniqueCities = useMemo(
+    () => [...new Set(venues.map((v) => v.city))].sort(),
+    [venues],
+  );
+
+  const filterFields: FilterFieldConfig[] = useMemo(
+    () =>
+      uniqueCities.length > 0
+        ? [{ key: "city", label: "City", type: "pills" as const, options: uniqueCities }]
+        : [],
+    [uniqueCities],
+  );
+
+  // Ensure filterValues has defaults if fields change
+  const safeFilterValues = useMemo(
+    () => ({ ...defaultValues(filterFields), ...filterValues }),
+    [filterFields, filterValues],
+  );
+
+  // ── Filtered venues ──
+  const filteredVenues = useMemo(() => {
+    let list = venues;
+    // Text search
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(
+        (v) =>
+          v.name.toLowerCase().includes(q) ||
+          v.city.toLowerCase().includes(q) ||
+          v.address.toLowerCase().includes(q),
+      );
+    }
+    // City pills
+    const cities = safeFilterValues.city as string[];
+    if (cities && cities.length > 0) {
+      list = list.filter((v) => cities.includes(v.city));
+    }
+    return list;
+  }, [venues, search, safeFilterValues]);
+
+  const filterCount = countActiveFilters(filterFields, safeFilterValues);
 
   const create = useMutation({
     mutationFn: venueApi.create,
@@ -109,13 +167,29 @@ export function VenuesPage() {
         <Button onClick={openCreate}>+ Create Venue</Button>
       </header>
 
+      <AdminActionBar
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search venues…"
+        filterCount={filterCount}
+        onFilterClick={() => setFilterOpen(true)}
+      />
+
+      <AdminFilterModal
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        fields={filterFields}
+        values={safeFilterValues}
+        onApply={setFilterValues}
+      />
+
       <section className="rounded-2xl border" style={{ borderColor: "var(--border-primary)", background: "var(--bg-secondary)" }}>
         <div className="border-b px-6 py-4" style={{ borderColor: "var(--border-primary)" }}>
           <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>All venues</h2>
         </div>
         {isLoading ? (
           <p className="px-6 py-6 text-sm" style={{ color: "var(--text-muted)" }}>Loading…</p>
-        ) : data && data.length ? (
+        ) : filteredVenues.length ? (
           <table className="w-full text-left text-sm">
             <thead style={{ background: "var(--bg-tertiary)" }}>
               <tr className="text-xs uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
@@ -128,7 +202,7 @@ export function VenuesPage() {
               </tr>
             </thead>
             <tbody>
-              {data.map((v) => (
+              {filteredVenues.map((v) => (
                 <tr key={v.id} className="border-t" style={{ borderColor: "var(--border-primary)" }}>
                   <td className="px-6 py-3 font-medium" style={{ color: "var(--text-primary)" }}>{v.name}</td>
                   <td className="px-6 py-3" style={{ color: "var(--text-secondary)" }}>{v.city}</td>

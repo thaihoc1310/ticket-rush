@@ -1,6 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
+import { AdminActionBar } from "@/components/admin/AdminActionBar";
+import {
+  AdminFilterModal,
+  countActiveFilters,
+  defaultValues,
+  type FilterFieldConfig,
+  type FilterValues,
+} from "@/components/admin/AdminFilterModal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
@@ -15,6 +23,11 @@ const GENDERS: Array<{ value: Gender | ""; label: string }> = [
   { value: "OTHER", label: "Other" },
 ];
 
+const FILTER_FIELDS: FilterFieldConfig[] = [
+  { key: "role", label: "Role", type: "pills", options: ["CUSTOMER", "ADMIN"] },
+  { key: "gender", label: "Gender", type: "pills", options: ["MALE", "FEMALE", "OTHER"] },
+];
+
 export function UsersPage() {
   const qc = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
@@ -26,6 +39,11 @@ export function UsersPage() {
   const [avatarError, setAvatarError] = useState<string | null>(null);
   
   const avatarRef = useRef<HTMLInputElement>(null);
+
+  // ── Search & Filter ──
+  const [search, setSearch] = useState("");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterValues, setFilterValues] = useState<FilterValues>(defaultValues(FILTER_FIELDS));
 
   // Save changes state for upload API call
   const [isUploading, setIsUploading] = useState(false);
@@ -160,6 +178,30 @@ export function UsersPage() {
 
   const users: User[] = data ?? [];
 
+  // ── Filtered users ──
+  const filteredUsers = useMemo(() => {
+    let list = users;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(
+        (u) =>
+          u.full_name.toLowerCase().includes(q) ||
+          u.email.toLowerCase().includes(q),
+      );
+    }
+    const roles = filterValues.role as string[];
+    if (roles && roles.length > 0) {
+      list = list.filter((u) => roles.includes(u.role));
+    }
+    const genders = filterValues.gender as string[];
+    if (genders && genders.length > 0) {
+      list = list.filter((u) => u.gender && genders.includes(u.gender));
+    }
+    return list;
+  }, [users, search, filterValues]);
+
+  const filterCount = countActiveFilters(FILTER_FIELDS, filterValues);
+
   return (
     <div className="flex flex-col gap-6">
       <header className="flex items-center justify-between">
@@ -170,13 +212,29 @@ export function UsersPage() {
         <Button onClick={openCreate}>+ Create User</Button>
       </header>
 
+      <AdminActionBar
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search users…"
+        filterCount={filterCount}
+        onFilterClick={() => setFilterOpen(true)}
+      />
+
+      <AdminFilterModal
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        fields={FILTER_FIELDS}
+        values={filterValues}
+        onApply={setFilterValues}
+      />
+
       <section className="rounded-2xl border" style={{ borderColor: "var(--border-primary)", background: "var(--bg-secondary)" }}>
         <div className="border-b px-6 py-4" style={{ borderColor: "var(--border-primary)" }}>
           <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>All users</h2>
         </div>
         {isLoading ? (
           <p className="px-6 py-6 text-sm" style={{ color: "var(--text-muted)" }}>Loading…</p>
-        ) : users.length ? (
+        ) : filteredUsers.length ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead style={{ background: "var(--bg-tertiary)" }}>
@@ -189,7 +247,7 @@ export function UsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => (
+                {filteredUsers.map((u) => (
                   <tr key={u.id} className="border-t" style={{ borderColor: "var(--border-primary)" }}>
                     <td className="px-6 py-3">
                       <div className="flex items-center gap-3">
