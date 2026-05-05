@@ -23,7 +23,7 @@ import type {
 } from "@/types/catalog";
 import { formatDateTime } from "@/utils/format";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 const STATUSES: EventStatus[] = ["DRAFT", "PUBLISHED", "ENDED"];
 const CATEGORIES = ["Concert", "Workshop", "Festival", "Theater"];
 

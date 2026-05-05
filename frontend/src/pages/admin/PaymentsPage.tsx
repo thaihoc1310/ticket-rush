@@ -13,7 +13,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { paymentApi } from "@/services/api";
 import { formatCurrency, formatDateTime } from "@/utils/format";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 export function PaymentsPage() {
   const { data, isLoading } = useQuery({

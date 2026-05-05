@@ -16,7 +16,7 @@ import { Modal } from "@/components/ui/Modal";
 import { ApiError, uploadApi, userApi } from "@/services/api";
 import type { Gender, Role, User, UserCreatePayload, UserUpdatePayload } from "@/types/auth";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 const ROLES: Role[] = ["CUSTOMER", "ADMIN"];
 const GENDERS: Array<{ value: Gender | ""; label: string }> = [
   { value: "", label: "Not specified" },

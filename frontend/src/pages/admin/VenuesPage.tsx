@@ -16,7 +16,7 @@ import { Modal } from "@/components/ui/Modal";
 import { ApiError, venueApi } from "@/services/api";
 import type { Venue, VenueCreatePayload } from "@/types/catalog";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 const EMPTY: VenueCreatePayload = {
   name: "",

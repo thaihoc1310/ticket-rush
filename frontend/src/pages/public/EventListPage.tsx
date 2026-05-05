@@ -16,7 +16,7 @@ import type { EventListQuery, EventSummary } from "@/types/catalog";
 import { formatDateTime } from "@/utils/format";
 
 const mechanicalEase = [0.175, 0.885, 0.32, 1.275] as const;
-const EVENTS_PER_BATCH = 9;
+const EVENTS_PER_BATCH = 20;
 
 function mainImageUrl(event: EventSummary): string | null {
   if (event.images?.length) {
