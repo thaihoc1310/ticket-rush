@@ -11,10 +11,12 @@ import {
 } from "@/components/admin/AdminFilterModal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Pagination } from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
 import { ApiError, uploadApi, userApi } from "@/services/api";
 import type { Gender, Role, User, UserCreatePayload, UserUpdatePayload } from "@/types/auth";
 
+const PAGE_SIZE = 20;
 const ROLES: Role[] = ["CUSTOMER", "ADMIN"];
 const GENDERS: Array<{ value: Gender | ""; label: string }> = [
   { value: "", label: "Not specified" },
@@ -44,6 +46,7 @@ export function UsersPage() {
   const [search, setSearch] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterValues, setFilterValues] = useState<FilterValues>(defaultValues(FILTER_FIELDS));
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Save changes state for upload API call
   const [isUploading, setIsUploading] = useState(false);
@@ -200,6 +203,15 @@ export function UsersPage() {
     return list;
   }, [users, search, filterValues]);
 
+  // Reset to page 1 when search or filters change
+  useEffect(() => { setCurrentPage(1); }, [search, filterValues]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+
   const filterCount = countActiveFilters(FILTER_FIELDS, filterValues);
 
   return (
@@ -247,7 +259,7 @@ export function UsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredUsers.map((u) => (
+                {paginatedUsers.map((u) => (
                   <tr key={u.id} className="border-t" style={{ borderColor: "var(--border-primary)" }}>
                     <td className="px-6 py-3">
                       <div className="flex items-center gap-3">
@@ -296,6 +308,14 @@ export function UsersPage() {
           <p className="px-6 py-6 text-sm" style={{ color: "var(--text-muted)" }}>No users found.</p>
         )}
       </section>
+
+      <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={filteredUsers.length}
+          pageSize={PAGE_SIZE}
+        />
 
       <Modal open={modalOpen} onClose={closeModal} title={editingUser ? "Edit User" : "Create User"}>
         <form onSubmit={onSubmit} className="grid gap-4 sm:grid-cols-2">

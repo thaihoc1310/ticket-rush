@@ -1,12 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { FilterModal, defaultFilter, type FilterState } from "@/components/FilterModal";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { eventApi } from "@/services/api";
 import { useAuthStore } from "@/store/authStore";
 import type { EventListQuery, EventSummary } from "@/types/catalog";
 import { formatDateTime } from "@/utils/format";
+
+const EVENTS_PER_BATCH = 30;
 
 function mainImageUrl(event: EventSummary): string | null {
   if (event.images?.length) {
@@ -77,8 +80,29 @@ export function EventListPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["events", query],
-    queryFn: () => eventApi.list(query),
+    queryFn: () => eventApi.list({ ...query, limit: 200 }),
   });
+
+  // ── Infinite Scroll ──
+  const [visibleCount, setVisibleCount] = useState(EVENTS_PER_BATCH);
+
+  // Reset visible count when query changes
+  useEffect(() => {
+    setVisibleCount(EVENTS_PER_BATCH);
+  }, [query]);
+
+  const totalEvents = data?.length ?? 0;
+  const visibleEvents = useMemo(
+    () => data?.slice(0, visibleCount) ?? [],
+    [data, visibleCount],
+  );
+  const hasMore = visibleCount < totalEvents;
+
+  const loadMore = useCallback(() => {
+    setVisibleCount((prev) => Math.min(prev + EVENTS_PER_BATCH, totalEvents));
+  }, [totalEvents]);
+
+  const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore });
 
   const [showPromo, setShowPromo] = useState(false);
   const [promoEvent, setPromoEvent] = useState<{ id: string; img: string } | null>(null);
@@ -184,7 +208,7 @@ export function EventListPage() {
           </div>
         )}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {data?.map((event) => {
+          {visibleEvents.map((event) => {
             const img = mainImageUrl(event);
             return (
               <Link
@@ -252,6 +276,14 @@ export function EventListPage() {
             );
           })}
         </div>
+
+        {/* Infinite scroll sentinel & loader */}
+        {hasMore && (
+          <>
+            <div ref={sentinelRef} className="infinite-scroll-sentinel" />
+            <div className="infinite-scroll-loader">Loading more events…</div>
+          </>
+        )}
       </section>
 
       {showPromo && promoEvent && (

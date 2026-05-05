@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
 import { AdminActionBar } from "@/components/admin/AdminActionBar";
@@ -12,6 +12,7 @@ import {
 } from "@/components/admin/AdminFilterModal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Pagination } from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
 import { ApiError, eventApi, uploadApi, venueApi } from "@/services/api";
 import type {
@@ -22,6 +23,7 @@ import type {
 } from "@/types/catalog";
 import { formatDateTime } from "@/utils/format";
 
+const PAGE_SIZE = 20;
 const STATUSES: EventStatus[] = ["DRAFT", "PUBLISHED", "ENDED"];
 const CATEGORIES = ["Concert", "Workshop", "Festival", "Theater"];
 
@@ -61,6 +63,7 @@ export function EventsPage() {
   const [search, setSearch] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterValues, setFilterValues] = useState<FilterValues>(defaultValues(FILTER_FIELDS));
+  const [currentPage, setCurrentPage] = useState(1);
 
   const venuesQ = useQuery({ queryKey: ["venues"], queryFn: venueApi.list });
   const eventsQ = useQuery({
@@ -235,6 +238,15 @@ export function EventsPage() {
     return list;
   }, [events, search, filterValues]);
 
+  // Reset to page 1 when search or filters change
+  useEffect(() => { setCurrentPage(1); }, [search, filterValues]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredEvents.length / PAGE_SIZE));
+  const paginatedEvents = filteredEvents.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+
   const filterCount = countActiveFilters(FILTER_FIELDS, filterValues);
 
   return (
@@ -284,7 +296,7 @@ export function EventsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredEvents.map((e) => (
+                {paginatedEvents.map((e) => (
                   <tr key={e.id} className="border-t" style={{ borderColor: "var(--border-primary)" }}>
                     <td className="px-6 py-3 font-medium" style={{ color: "var(--text-primary)" }}>{e.title}</td>
                     <td className="px-6 py-3" style={{ color: "var(--text-secondary)" }}>
@@ -349,6 +361,14 @@ export function EventsPage() {
           <p className="px-6 py-6 text-sm" style={{ color: "var(--text-muted)" }}>No events yet.</p>
         )}
       </section>
+
+      <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={filteredEvents.length}
+          pageSize={PAGE_SIZE}
+        />
 
       {/* Create/Edit Modal */}
       <Modal open={modalOpen} onClose={closeModal} title={editingEvent ? "Edit Event" : "Create Event"} maxWidth="40rem">

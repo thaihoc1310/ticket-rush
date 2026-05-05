@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { AdminActionBar } from "@/components/admin/AdminActionBar";
 import {
@@ -10,10 +10,13 @@ import {
   type FilterValues,
 } from "@/components/admin/AdminFilterModal";
 import { Button } from "@/components/ui/Button";
+import { Pagination } from "@/components/ui/Pagination";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { ApiError, venueApi } from "@/services/api";
 import type { Venue, VenueCreatePayload } from "@/types/catalog";
+
+const PAGE_SIZE = 20;
 
 const EMPTY: VenueCreatePayload = {
   name: "",
@@ -34,6 +37,7 @@ export function VenuesPage() {
   const [search, setSearch] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterValues, setFilterValues] = useState<FilterValues>({});
+  const [currentPage, setCurrentPage] = useState(1);
 
   const { data, isLoading } = useQuery({
     queryKey: ["venues"],
@@ -82,6 +86,15 @@ export function VenuesPage() {
     }
     return list;
   }, [venues, search, safeFilterValues]);
+
+  // Reset to page 1 when search or filters change
+  useEffect(() => { setCurrentPage(1); }, [search, safeFilterValues]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredVenues.length / PAGE_SIZE));
+  const paginatedVenues = filteredVenues.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
 
   const filterCount = countActiveFilters(filterFields, safeFilterValues);
 
@@ -202,7 +215,7 @@ export function VenuesPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredVenues.map((v) => (
+              {paginatedVenues.map((v) => (
                 <tr key={v.id} className="border-t" style={{ borderColor: "var(--border-primary)" }}>
                   <td className="px-6 py-3 font-medium" style={{ color: "var(--text-primary)" }}>{v.name}</td>
                   <td className="px-6 py-3" style={{ color: "var(--text-secondary)" }}>{v.city}</td>
@@ -228,6 +241,14 @@ export function VenuesPage() {
           <p className="px-6 py-6 text-sm" style={{ color: "var(--text-muted)" }}>No venues yet.</p>
         )}
       </section>
+
+      <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={filteredVenues.length}
+          pageSize={PAGE_SIZE}
+        />
 
       <Modal open={modalOpen} onClose={closeModal} title={editingVenue ? "Edit Venue" : "Create Venue"}>
         <form onSubmit={onSubmit} className="grid gap-4 sm:grid-cols-2">

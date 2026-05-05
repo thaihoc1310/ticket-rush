@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { AdminActionBar } from "@/components/admin/AdminActionBar";
 import {
@@ -9,8 +9,11 @@ import {
   type FilterFieldConfig,
   type FilterValues,
 } from "@/components/admin/AdminFilterModal";
+import { Pagination } from "@/components/ui/Pagination";
 import { paymentApi } from "@/services/api";
 import { formatCurrency, formatDateTime } from "@/utils/format";
+
+const PAGE_SIZE = 20;
 
 export function PaymentsPage() {
   const { data, isLoading } = useQuery({
@@ -24,6 +27,7 @@ export function PaymentsPage() {
   const [search, setSearch] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterValues, setFilterValues] = useState<FilterValues>({});
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Derive dynamic options from data
   const uniqueMethods = useMemo(
@@ -107,6 +111,15 @@ export function PaymentsPage() {
     return list;
   }, [payments, search, safeFilterValues, amountBounds]);
 
+  // Reset to page 1 when search or filters change
+  useEffect(() => { setCurrentPage(1); }, [search, safeFilterValues]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredPayments.length / PAGE_SIZE));
+  const paginatedPayments = filteredPayments.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+
   const filterCount = countActiveFilters(filterFields, safeFilterValues);
 
   return (
@@ -154,7 +167,7 @@ export function PaymentsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredPayments.map((p) => (
+                {paginatedPayments.map((p) => (
                   <tr key={p.id} className="border-t" style={{ borderColor: "var(--border-primary)" }}>
                     <td className="px-6 py-3 font-medium" style={{ color: "var(--text-primary)" }}>
                       {p.event_title ?? "—"}
@@ -187,6 +200,14 @@ export function PaymentsPage() {
           <p className="px-6 py-6 text-sm" style={{ color: "var(--text-muted)" }}>No payments found.</p>
         )}
       </section>
+
+      <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={filteredPayments.length}
+          pageSize={PAGE_SIZE}
+        />
     </div>
   );
 }
