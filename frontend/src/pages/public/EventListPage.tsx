@@ -1,12 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
+import { motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { FilterModal, defaultFilter, type FilterState } from "@/components/FilterModal";
+import { Badge, LED } from "@/components/ui/Badge";
+import {
+  FilterModal,
+  defaultFilter,
+  type FilterState,
+} from "@/components/FilterModal";
 import { eventApi } from "@/services/api";
 import { useAuthStore } from "@/store/authStore";
 import type { EventListQuery, EventSummary } from "@/types/catalog";
 import { formatDateTime } from "@/utils/format";
+
+const mechanicalEase = [0.175, 0.885, 0.32, 1.275] as const;
 
 function mainImageUrl(event: EventSummary): string | null {
   if (event.images?.length) {
@@ -16,10 +24,18 @@ function mainImageUrl(event: EventSummary): string | null {
   return event.banner_url;
 }
 
-function countActive(state: FilterState, meta: { min_price: number; max_price: number } | undefined): number {
+function countActive(
+  state: FilterState,
+  meta: { min_price: number; max_price: number } | undefined
+): number {
   let n = 0;
   if (state.dateRange.startDate || state.dateRange.endDate) n++;
-  if (meta && (state.priceRange.min > meta.min_price || state.priceRange.max < meta.max_price)) n++;
+  if (
+    meta &&
+    (state.priceRange.min > meta.min_price ||
+      state.priceRange.max < meta.max_price)
+  )
+    n++;
   if (state.locations.length) n++;
   if (state.categories.length) n++;
   if (state.status) n++;
@@ -30,7 +46,6 @@ export function EventListPage() {
   const [q, setQ] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
 
-  // Fetch filter metadata (price bounds, cities, categories)
   const metaQ = useQuery({
     queryKey: ["events", "filter-meta"],
     queryFn: eventApi.filterMeta,
@@ -41,36 +56,45 @@ export function EventListPage() {
   const user = useAuthStore((state) => state.user);
   const isAdmin = user?.role === "ADMIN";
 
-  const [filters, setFilters] = useState<FilterState>(() => defaultFilter(meta, isAdmin));
+  const [filters, setFilters] = useState<FilterState>(() =>
+    defaultFilter(meta, isAdmin)
+  );
 
   const activeCount = useMemo(() => countActive(filters, meta), [filters, meta]);
 
-  // Sync price range when meta first arrives
   useEffect(() => {
     if (meta) {
       setFilters((prev) => ({
         ...prev,
         priceRange: {
           min: prev.priceRange.min === 0 ? meta.min_price : prev.priceRange.min,
-          max: prev.priceRange.max === 1000 ? meta.max_price : prev.priceRange.max,
+          max:
+            prev.priceRange.max === 1000 ? meta.max_price : prev.priceRange.max,
         },
       }));
     }
   }, [meta]);
 
-  // Build query object from search + applied filters
   const query: EventListQuery = useMemo(() => {
     const out: EventListQuery = {};
     const search = q.trim();
     if (search) out.q = search;
     if (filters.status) out.status = filters.status;
-    if (filters.dateRange.startDate) out.date_from = new Date(filters.dateRange.startDate + "T00:00:00").toISOString();
-    if (filters.dateRange.endDate) out.date_to = new Date(filters.dateRange.endDate + "T23:59:59").toISOString();
+    if (filters.dateRange.startDate)
+      out.date_from = new Date(
+        filters.dateRange.startDate + "T00:00:00"
+      ).toISOString();
+    if (filters.dateRange.endDate)
+      out.date_to = new Date(
+        filters.dateRange.endDate + "T23:59:59"
+      ).toISOString();
     if (filters.locations.length) out.cities = filters.locations.join(",");
     if (filters.categories.length) out.categories = filters.categories.join(",");
     if (meta) {
-      if (filters.priceRange.min > meta.min_price) out.price_min = filters.priceRange.min;
-      if (filters.priceRange.max < meta.max_price) out.price_max = filters.priceRange.max;
+      if (filters.priceRange.min > meta.min_price)
+        out.price_min = filters.priceRange.min;
+      if (filters.priceRange.max < meta.max_price)
+        out.price_max = filters.priceRange.max;
     }
     return out;
   }, [q, filters, meta]);
@@ -81,9 +105,11 @@ export function EventListPage() {
   });
 
   const [showPromo, setShowPromo] = useState(false);
-  const [promoEvent, setPromoEvent] = useState<{ id: string; img: string } | null>(null);
+  const [promoEvent, setPromoEvent] = useState<{
+    id: string;
+    img: string;
+  } | null>(null);
 
-  // Block body scroll when promo popup is open
   useEffect(() => {
     if (showPromo) {
       document.body.style.overflow = "hidden";
@@ -102,7 +128,7 @@ export function EventListPage() {
         const eventsWithImage = data
           .map((e) => ({ id: e.id, img: mainImageUrl(e) }))
           .filter((e) => e.img !== null) as { id: string; img: string }[];
-        
+
         if (eventsWithImage.length > 0) {
           const randomIndex = Math.floor(Math.random() * eventsWithImage.length);
           setPromoEvent(eventsWithImage[randomIndex]);
@@ -115,20 +141,68 @@ export function EventListPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      {/* ── Hero ── */}
-      <section className="hero-gradient rounded-3xl px-8 py-12 shadow-lg">
-        <p className="text-sm font-semibold uppercase tracking-widest opacity-80">
-          TicketRush
-        </p>
-        <h1 className="mt-2 text-4xl font-bold leading-tight sm:text-5xl">
-          Snag the best seats without the chaos.
-        </h1>
-        <p className="mt-3 max-w-xl opacity-90">
-          Real-time seating maps, fair queues, and lightning-fast checkout.
-        </p>
-      </section>
+      {/* Industrial Hero Section */}
+      <motion.section
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: mechanicalEase }}
+        className="relative overflow-hidden rounded-[var(--radius-2xl)] bg-[var(--dark-panel)] p-8 shadow-[var(--shadow-floating)] lg:p-12"
+      >
+        {/* Carbon Fiber Texture Overlay */}
+        <div
+          className="absolute inset-0 opacity-20 "
+          style={{
+            backgroundImage: "url('/images/hero_image1.jpg')",
+          }}
+        />
 
-      {/* ── Search + Filter trigger ── */}
+        {/* Content Grid */}
+        <div className="relative grid gap-8 lg:grid-cols-[1.2fr_1fr] lg:items-center">
+          {/* Text Content */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1, duration: 0.45, ease: mechanicalEase }}
+            className="flex flex-col gap-4"
+          >
+            {/* System Status Badge */}
+            <div className="flex items-center gap-2">
+              <LED status="accent" size="sm" />
+              <span className="font-mono text-[0.6875rem] font-bold uppercase tracking-wider text-[var(--dark-text-muted)]">
+                TicketRush Platform
+              </span>
+            </div>
+
+            <h1 className="text-3xl font-extrabold leading-tight tracking-tight text-white drop-shadow-lg sm:text-4xl lg:text-5xl">
+              Snag the best seats
+              <br />
+              <span className="text-[var(--accent)]">without the chaos.</span>
+            </h1>
+
+            <p className="max-w-lg text-base text-white lg:text-lg">
+              Real-time seating maps, fair queues, and lightning-fast checkout.
+              Experience ticket booking as it should be.
+            </p>
+
+            {/* Feature Pills */}
+            <div className="mt-2 flex flex-wrap gap-2">
+              {["Real-time Maps", "Fair Queue", "Instant Checkout"].map(
+                (feature) => (
+                  <span
+                    key={feature}
+                    className="rounded-full bg-white/10 px-3 py-1.5 font-mono text-[0.6875rem] font-bold uppercase tracking-wider text-white/80"
+                  >
+                    {feature}
+                  </span>
+                )
+              )}
+            </div>
+          </motion.div>
+
+        </div>
+      </motion.section>
+
+      {/* Search & Filter Row */}
       <div className="event-search-row">
         <input
           value={q}
@@ -142,15 +216,26 @@ export function EventListPage() {
           className="filter-trigger-btn"
           onClick={() => setFilterOpen(true)}
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="4" y1="6" x2="20" y2="6" /><line x1="8" y1="12" x2="20" y2="12" /><line x1="12" y1="18" x2="20" y2="18" />
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
           </svg>
-          Filters
-          {activeCount > 0 && <span className="filter-badge">{activeCount}</span>}
+          <span className="hidden sm:inline">Filters</span>
+          {activeCount > 0 && (
+            <span className="filter-badge">{activeCount}</span>
+          )}
         </button>
       </div>
 
-      {/* ── Filter Modal ── */}
+      {/* Filter Modal */}
       <FilterModal
         open={filterOpen}
         onClose={() => setFilterOpen(false)}
@@ -159,129 +244,262 @@ export function EventListPage() {
         initial={filters}
       />
 
-      {/* ── Event grid ── */}
+      {/* Event Grid */}
       <section>
         {isLoading && (
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-            Loading events…
-          </p>
-        )}
-        {error && (
-          <p className="text-sm" style={{ color: "var(--danger)" }}>
-            Failed to load events. Please retry.
-          </p>
-        )}
-        {data && data.length === 0 && (
-          <div
-            className="rounded-2xl border border-dashed p-10 text-center text-sm"
-            style={{
-              borderColor: "var(--border-primary)",
-              background: "var(--bg-secondary)",
-              color: "var(--text-muted)",
-            }}
-          >
-            No events match your filters.
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {[...Array(6)].map((_, i) => (
+              <div
+                key={i}
+                className="card animate-pulse overflow-hidden rounded-[var(--radius-xl)]"
+              >
+                <div className="h-44 bg-[var(--muted)]" />
+                <div className="p-5">
+                  <div className="mb-3 h-3 w-20 rounded bg-[var(--muted)]" />
+                  <div className="mb-2 h-5 w-3/4 rounded bg-[var(--muted)]" />
+                  <div className="h-4 w-1/2 rounded bg-[var(--muted)]" />
+                </div>
+              </div>
+            ))}
           </div>
         )}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+
+        {error && (
+          <div className="card card-screws p-8 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--danger-bg)]">
+              <svg
+                width="28"
+                height="28"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--danger)"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" x2="12" y1="8" y2="12" />
+                <line x1="12" x2="12.01" y1="16" y2="16" />
+              </svg>
+            </div>
+            <p className="font-semibold text-[var(--text-primary)]">
+              Failed to load events
+            </p>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">
+              Please check your connection and try again.
+            </p>
+          </div>
+        )}
+
+        {data && data.length === 0 && (
+          <div className="card card-screws p-10 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--muted)] shadow-[var(--shadow-recessed)]">
+              <svg
+                width="28"
+                height="28"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--text-muted)"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+            </div>
+            <p className="font-semibold text-[var(--text-primary)]">
+              No events found
+            </p>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">
+              Try adjusting your filters or search terms.
+            </p>
+          </div>
+        )}
+
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={{
+            hidden: {},
+            visible: { transition: { staggerChildren: 0.05 } },
+          }}
+          className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+        >
           {data?.map((event) => {
             const img = mainImageUrl(event);
             return (
-              <Link
+              <motion.div
                 key={event.id}
-                to={`/events/${event.id}`}
-                className="group flex flex-col overflow-hidden rounded-2xl border shadow-sm transition hover:-translate-y-0.5"
-                style={{
-                  borderColor: "var(--border-primary)",
-                  background: "var(--bg-secondary)",
+                variants={{
+                  hidden: { opacity: 0, y: 14 },
+                  visible: {
+                    opacity: 1,
+                    y: 0,
+                    transition: { duration: 0.32, ease: mechanicalEase },
+                  },
                 }}
+                whileHover={{ y: -4 }}
               >
-                <div
-                  className="h-40 w-full bg-cover bg-center"
-                  style={
-                    img
-                      ? {
-                          backgroundImage: `url(${img})`,
-                        }
-                      : {
-                          background:
-                            "linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%)",
-                        }
-                  }
-                />
-                <div className="flex flex-1 flex-col gap-2 p-5">
-                  <div
-                    className="flex items-center justify-between text-xs font-medium uppercase tracking-wider"
-                    style={{ color: "var(--text-muted)" }}
-                  >
-                    <span>{event.venue.city}</span>
-                    <span
-                      className={`badge ${
+                <Link
+                  to={`/events/${event.id}`}
+                  className="card card-screws group block cursor-pointer overflow-hidden rounded-[var(--radius-xl)]"
+                >
+                {/* Image with grayscale effect */}
+                <div className="relative h-44 overflow-hidden">
+                  {img ? (
+                    <img
+                      src={img}
+                      alt=""
+                      className="h-full w-full object-cover grayscale-[30%] transition-all duration-500 group-hover:scale-105 group-hover:grayscale-0"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[var(--accent)] to-[var(--accent-hover)]">
+                      <svg
+                        width="48"
+                        height="48"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="white"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="opacity-50"
+                      >
+                        <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
+                        <path d="M13 5v2" />
+                        <path d="M13 17v2" />
+                        <path d="M13 11v2" />
+                      </svg>
+                    </div>
+                  )}
+
+                  {/* Status Badge Overlay */}
+                  <div className="absolute right-3 top-3">
+                    <Badge
+                      variant={
                         event.status === "PUBLISHED"
-                          ? "badge-success"
+                          ? "success"
                           : event.status === "ENDED"
-                            ? "badge-muted"
-                            : "badge-warning"
-                      }`}
+                            ? "muted"
+                            : "warning"
+                      }
+                      led
                     >
                       {event.status}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Card Content */}
+                <div className="flex flex-1 flex-col gap-2 p-5">
+                  {/* Location Label */}
+                  <div className="flex items-center gap-2">
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="text-[var(--text-muted)]"
+                    >
+                      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                      <circle cx="12" cy="10" r="3" />
+                    </svg>
+                    <span className="font-mono text-[0.6875rem] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                      {event.venue.city}
                     </span>
                   </div>
-                  <h3
-                    className="text-lg font-semibold transition group-hover:text-[color:var(--accent)]"
-                    style={{ color: "var(--text-primary)" }}
-                  >
+
+                  {/* Title */}
+                  <h3 className="text-lg font-bold leading-tight text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent)]">
                     {event.title}
                   </h3>
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+
+                  {/* Venue & Category */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm text-[var(--text-muted)]">
                       {event.venue.name}
-                    </p>
+                    </span>
                     {event.category && (
-                      <span className="badge badge-accent">{event.category}</span>
+                      <Badge variant="accent">{event.category}</Badge>
                     )}
                   </div>
-                  <p
-                    className="mt-auto text-xs"
-                    style={{ color: "var(--text-muted)" }}
-                  >
-                    {formatDateTime(event.event_date)}
-                  </p>
+
+                  {/* Date */}
+                  <div className="mt-auto flex items-center gap-2 pt-2">
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="text-[var(--text-muted)]"
+                    >
+                      <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+                      <line x1="16" x2="16" y1="2" y2="6" />
+                      <line x1="8" x2="8" y1="2" y2="6" />
+                      <line x1="3" x2="21" y1="10" y2="10" />
+                    </svg>
+                    <span className="font-mono text-xs text-[var(--text-muted)]">
+                      {formatDateTime(event.event_date)}
+                    </span>
+                  </div>
                 </div>
-              </Link>
+                </Link>
+              </motion.div>
             );
           })}
-        </div>
+        </motion.div>
       </section>
 
+      {/* Promo Popup */}
       {showPromo && promoEvent && (
-        <div 
+        <div
           className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-sm"
-          style={{ background: "rgba(0,0,0,0.8)", animation: "fadeIn 0.2s ease-out" }}
+          style={{
+            background: "rgba(45, 52, 54, 0.9)",
+            animation: "fadeIn 200ms ease-out",
+          }}
           onClick={() => setShowPromo(false)}
         >
-          <div 
+          <div
             className="relative w-full max-w-4xl"
-            style={{ animation: "slideUp 0.3s ease-out" }}
+            style={{ animation: "slideUp 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275)" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <button 
-              className="absolute -right-2 -top-12 p-2 text-white transition hover:text-gray-300"
+            <button
+              className="absolute -right-2 -top-14 flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 text-white transition hover:bg-white/20"
               onClick={() => setShowPromo(false)}
               aria-label="Close"
             >
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <line x1="18" y1="6" x2="6" y2="18" />
                 <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
-            <Link 
-              to={`/events/${promoEvent.id}`} 
-              className="block overflow-hidden rounded-2xl shadow-2xl transition hover:scale-[1.01]"
+            <Link
+              to={`/events/${promoEvent.id}`}
+              className="block overflow-hidden rounded-[var(--radius-xl)] shadow-2xl transition hover:scale-[1.01]"
             >
-              <img 
-                src={promoEvent.img} 
-                alt="Promo Event" 
+              <img
+                src={promoEvent.img}
+                alt="Featured Event"
                 className="max-h-[85vh] w-full object-contain"
                 style={{ background: "rgba(0,0,0,0.5)" }}
               />

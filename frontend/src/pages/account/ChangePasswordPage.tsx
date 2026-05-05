@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 
+import { LED } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ApiError, authApi } from "@/services/api";
@@ -37,7 +38,9 @@ export function ChangePasswordPage() {
       setNewPassword("");
       setConfirmPassword("");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Unable to change password.");
+      setError(
+        err instanceof ApiError ? err.message : "Unable to change password."
+      );
     } finally {
       setSubmitting(false);
     }
@@ -45,63 +48,99 @@ export function ChangePasswordPage() {
 
   return (
     <div className="account-card">
-      <div>
-        <h1 className="text-2xl font-semibold" style={{ color: "var(--text-primary)" }}>
-          Change password
+      {/* Header */}
+      <div className="mb-6 border-b-2 border-[var(--muted)] pb-6">
+        <div className="mb-2 flex items-center gap-2">
+          <LED status="warning" size="sm" />
+          <span className="font-mono text-[0.6875rem] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+            Security Settings
+          </span>
+        </div>
+        <h1 className="text-2xl font-extrabold text-[var(--text-primary)]">
+          Change Password
         </h1>
-        <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+        <p className="mt-1 text-sm text-[var(--text-muted)]">
           Choose a strong password you don't use elsewhere.
         </p>
       </div>
 
-      <form onSubmit={onSubmit} className="mt-6 flex max-w-lg flex-col gap-4">
+      {/* Form */}
+      <form onSubmit={onSubmit} className="flex max-w-lg flex-col gap-5">
         <Input
-          label="Current password"
+          label="Current Password"
           type="password"
           autoComplete="current-password"
           required
           value={currentPassword}
           onChange={(e) => setCurrentPassword(e.target.value)}
+          placeholder="••••••••"
         />
         <Input
-          label="New password"
+          label="New Password"
           type="password"
           autoComplete="new-password"
           required
           minLength={8}
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
+          placeholder="••••••••"
+          hint="Minimum 8 characters"
         />
         <Input
-          label="Confirm new password"
+          label="Confirm New Password"
           type="password"
           autoComplete="new-password"
           required
           minLength={8}
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
+          placeholder="••••••••"
         />
 
+        {/* Messages */}
         {error && (
-          <p
-            className="rounded-md px-3 py-2 text-sm"
-            style={{ background: "var(--danger-bg)", color: "var(--danger)" }}
-          >
-            {error}
-          </p>
+          <div className="flex items-start gap-3 rounded-lg bg-[var(--danger-bg)] p-4">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--danger)"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="flex-shrink-0"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" x2="12" y1="8" y2="12" />
+              <line x1="12" x2="12.01" y1="16" y2="16" />
+            </svg>
+            <p className="text-sm font-medium text-[var(--danger)]">{error}</p>
+          </div>
         )}
         {message && (
-          <p
-            className="rounded-md px-3 py-2 text-sm"
-            style={{ background: "var(--success-bg)", color: "var(--success)" }}
-          >
-            {message}
-          </p>
+          <div className="flex items-center gap-3 rounded-lg bg-[var(--success-bg)] p-4">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--success)"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="flex-shrink-0"
+            >
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            <p className="text-sm font-medium text-[var(--success)]">{message}</p>
+          </div>
         )}
 
-        <div className="flex justify-end">
+        <div className="flex justify-end border-t-2 border-[var(--muted)] pt-5">
           <Button type="submit" loading={submitting}>
-            Update password
+            {submitting ? "Updating..." : "Update Password"}
           </Button>
         </div>
       </form>

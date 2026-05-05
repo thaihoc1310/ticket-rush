@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
+import { LED } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useAuth } from "@/hooks/useAuth";
@@ -17,11 +18,9 @@ export function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  // --- Avatar preview state ---
   const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
-  // Cleanup object URL on unmount or when preview changes
   useEffect(() => {
     return () => {
       if (avatarPreview) URL.revokeObjectURL(avatarPreview);
@@ -39,14 +38,12 @@ export function ProfilePage() {
     setError(null);
     setMessage(null);
     try {
-      // Step 1: Upload pending avatar file if exists
       let avatarUrl: string | undefined;
       if (pendingAvatarFile) {
         const { avatar_url } = await uploadApi.avatar(pendingAvatarFile);
         avatarUrl = avatar_url;
       }
 
-      // Step 2: Update profile (including avatar URL if uploaded)
       const updated = await authApi.updateMe({
         full_name: fullName || undefined,
         date_of_birth: dob || null,
@@ -56,7 +53,6 @@ export function ProfilePage() {
 
       useAuthStore.getState().setUser(updated);
 
-      // Clear pending avatar state
       if (pendingAvatarFile) {
         setPendingAvatarFile(null);
         if (avatarPreview) {
@@ -67,7 +63,9 @@ export function ProfilePage() {
 
       setMessage("Profile updated successfully.");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Unable to save changes.");
+      setError(
+        err instanceof ApiError ? err.message : "Unable to save changes."
+      );
     } finally {
       setSaving(false);
     }
@@ -80,7 +78,6 @@ export function ProfilePage() {
     e.target.value = "";
     if (!file) return;
 
-    // Revoke previous preview URL to avoid memory leak
     if (avatarPreview) URL.revokeObjectURL(avatarPreview);
 
     setPendingAvatarFile(file);
@@ -91,33 +88,41 @@ export function ProfilePage() {
 
   return (
     <div className="account-card">
-      <div>
-        <h1 className="text-2xl font-semibold" style={{ color: "var(--text-primary)" }}>
-          Basic information
+      {/* Header */}
+      <div className="mb-6 border-b-2 border-[var(--muted)] pb-6">
+        <div className="mb-2 flex items-center gap-2">
+          <LED status="accent" size="sm" />
+          <span className="font-mono text-[0.6875rem] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+            Profile Settings
+          </span>
+        </div>
+        <h1 className="text-2xl font-extrabold text-[var(--text-primary)]">
+          Basic Information
         </h1>
-        <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+        <p className="mt-1 text-sm text-[var(--text-muted)]">
           Update your personal details and profile photo.
         </p>
       </div>
 
-      <div className="account-avatar-block mt-6">
+      {/* Avatar Section */}
+      <div className="account-avatar-block">
         <div className="account-avatar">
-          {displayAvatar ? <img src={displayAvatar} alt="" /> : <span>{initials}</span>}
+          {displayAvatar ? (
+            <img src={displayAvatar} alt="" />
+          ) : (
+            <span>{initials}</span>
+          )}
         </div>
         <div className="flex flex-col gap-2">
-          <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-            Profile photo
+          <p className="font-semibold text-[var(--text-primary)]">
+            Profile Photo
           </p>
-          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-            PNG or JPG, up to ~5 MB.
+          <p className="font-mono text-[0.6875rem] text-[var(--text-muted)]">
+            PNG or JPG, up to ~5 MB
           </p>
           <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={onPickAvatar}
-            >
-              {user.avatar || pendingAvatarFile ? "Change photo" : "Upload photo"}
+            <Button type="button" variant="secondary" size="sm" onClick={onPickAvatar}>
+              {user.avatar || pendingAvatarFile ? "Change Photo" : "Upload Photo"}
             </Button>
           </div>
           <input
@@ -130,16 +135,23 @@ export function ProfilePage() {
         </div>
       </div>
 
-      <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Input label="Full name" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+      {/* Form */}
+      <form onSubmit={onSubmit} className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <Input
+          label="Full Name"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          required
+          placeholder="John Doe"
+        />
         <Input label="Email" value={user.email} disabled />
         <Input
-          label="Date of birth"
+          label="Date of Birth"
           type="date"
           value={dob ?? ""}
           onChange={(e) => setDob(e.target.value)}
         />
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-2">
           <label htmlFor="gender" className="input-label">
             Gender
           </label>
@@ -147,7 +159,7 @@ export function ProfilePage() {
             id="gender"
             value={gender ?? ""}
             onChange={(e) => setGender(e.target.value as Gender | "")}
-            className="input-field"
+            className="select-field"
           >
             <option value="">Prefer not to say</option>
             <option value="MALE">Male</option>
@@ -156,26 +168,50 @@ export function ProfilePage() {
           </select>
         </div>
 
+        {/* Messages */}
         {error && (
-          <p
-            className="col-span-full rounded-md px-3 py-2 text-sm"
-            style={{ background: "var(--danger-bg)", color: "var(--danger)" }}
-          >
-            {error}
-          </p>
+          <div className="col-span-full flex items-start gap-3 rounded-lg bg-[var(--danger-bg)] p-4">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--danger)"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="flex-shrink-0"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" x2="12" y1="8" y2="12" />
+              <line x1="12" x2="12.01" y1="16" y2="16" />
+            </svg>
+            <p className="text-sm font-medium text-[var(--danger)]">{error}</p>
+          </div>
         )}
         {message && (
-          <p
-            className="col-span-full rounded-md px-3 py-2 text-sm"
-            style={{ background: "var(--success-bg)", color: "var(--success)" }}
-          >
-            {message}
-          </p>
+          <div className="col-span-full flex items-center gap-3 rounded-lg bg-[var(--success-bg)] p-4">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--success)"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="flex-shrink-0"
+            >
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            <p className="text-sm font-medium text-[var(--success)]">{message}</p>
+          </div>
         )}
 
-        <div className="col-span-full flex justify-end">
+        <div className="col-span-full flex justify-end border-t-2 border-[var(--muted)] pt-5">
           <Button type="submit" loading={saving}>
-            Save changes
+            {saving ? "Saving..." : "Save Changes"}
           </Button>
         </div>
       </form>
