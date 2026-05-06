@@ -195,6 +195,8 @@ export const bookingApi = {
   pay: (id: string) => request<Booking>(`/bookings/${id}/pay`, { method: "POST" }),
   cancel: (id: string) =>
     request<Booking>(`/bookings/${id}/cancel`, { method: "POST" }),
+  dismiss: (id: string) =>
+    request<void>(`/bookings/${id}/dismiss`, { method: "POST" }),
 };
 
 export const seatAdminApi = {

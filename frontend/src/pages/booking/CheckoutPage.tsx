@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { LED } from "@/components/ui/Badge";
@@ -15,11 +15,21 @@ function formatCountdown(ms: number): string {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+const CHECKOUT_TTL_MS = 60_000; // 60 s checkout window
+
+// Module-level set to track mounted checkout pages.
+// Survives React StrictMode double-mount (mount → unmount → remount).
+const _activeBookings = new Set<string>();
+
 export function CheckoutPage() {
   const { bookingId = "" } = useParams<{ bookingId: string }>();
   const navigate = useNavigate();
   const [now, setNow] = useState(() => Date.now());
+  // Local deadline: always a fresh 60s window from when the page mounts.
+  const [deadline] = useState(() => Date.now() + CHECKOUT_TTL_MS);
   const [error, setError] = useState<string | null>(null);
+  // Track whether payment succeeded so we don't dismiss a paid booking.
+  const paidRef = useRef(false);
 
   const bookingQ = useQuery({
     queryKey: ["booking", bookingId],
@@ -33,23 +43,43 @@ export function CheckoutPage() {
     return () => clearInterval(t);
   }, []);
 
+  // On unmount (browser back, navigation away): dismiss the booking
+  // so seats stay locked but the booking record is cleaned up.
+  // Uses deferred pattern to survive React StrictMode double-mount.
+  useEffect(() => {
+    _activeBookings.add(bookingId);
+    return () => {
+      _activeBookings.delete(bookingId);
+      if (paidRef.current) return;
+      // Defer: if StrictMode remounts immediately, bookingId will be
+      // re-added to _activeBookings before this timeout fires.
+      setTimeout(() => {
+        if (!_activeBookings.has(bookingId)) {
+          bookingApi.dismiss(bookingId).catch(() => {});
+        }
+      }, 100);
+    };
+  }, [bookingId]);
+
   const pay = useMutation({
     mutationFn: () => bookingApi.pay(bookingId),
-    onSuccess: () => navigate(`/confirmation/${bookingId}`),
+    onSuccess: () => {
+      paidRef.current = true;
+      navigate(`/confirmation/${bookingId}`);
+    },
     onError: (err: unknown) =>
       setError(err instanceof ApiError ? err.message : "Payment failed"),
   });
 
-  const cancel = useMutation({
-    mutationFn: () => bookingApi.cancel(bookingId),
-    onSuccess: (booking) => {
-      navigate(`/events/${booking.event_id}/book`, { replace: true });
-    },
-    onError: (err: unknown) =>
-      setError(
-        err instanceof ApiError ? err.message : "Failed to cancel booking"
-      ),
-  });
+  const goBack = useCallback(() => {
+    // Dismiss is handled by the unmount effect.
+    const eventId = bookingQ.data?.event_id;
+    if (eventId) {
+      navigate(`/events/${eventId}/book`, { replace: true });
+    } else {
+      navigate(-1);
+    }
+  }, [bookingQ.data, navigate]);
 
   if (bookingQ.isLoading) {
     return (
@@ -98,9 +128,9 @@ export function CheckoutPage() {
   }
 
   const booking = bookingQ.data;
-  const expiresAt = new Date(booking.expires_at).getTime();
-  const remaining = expiresAt - now;
-  const expired = remaining <= 0;
+  // Use the local mount-based deadline so the timer always starts at 60s.
+  const remaining = deadline - now;
+  const expired = remaining <= 0 || booking.status === "EXPIRED";
   const canPay =
     booking.status === "PENDING" && !expired && pay.isPending === false;
   const canGoBack = booking.status === "PENDING" && !expired;
@@ -118,14 +148,13 @@ export function CheckoutPage() {
             }
             if (
               confirm(
-                "Go back and re-pick your seats? Your current hold will be released."
+                "Go back and re-pick your seats? Your seats will still be held."
               )
             ) {
-              cancel.mutate();
+              goBack();
             }
           }}
-          disabled={cancel.isPending}
-          className="mb-4 flex items-center gap-2 text-sm font-semibold text-[var(--accent)] transition hover:text-[var(--accent-hover)] disabled:opacity-60"
+          className="mb-4 flex items-center gap-2 text-sm font-semibold text-[var(--accent)] transition hover:text-[var(--accent-hover)]"
         >
           <svg
             width="16"

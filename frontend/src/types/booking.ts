@@ -14,12 +14,14 @@ export interface SeatWithZone {
   seat_number: number;
   status: SeatStatus;
   locked_by: string | null;
+  locked_at: string | null;
 }
 
 export interface SeatLockResponse {
   seat_id: string;
   status: SeatStatus;
   expires_in: number;
+  locked_at: string | null;
 }
 
 export interface BookingItem {

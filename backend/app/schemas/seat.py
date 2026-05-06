@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -30,9 +31,11 @@ class SeatWithZone(BaseModel):
     seat_number: int
     status: SeatStatus
     locked_by: UUID | None
+    locked_at: datetime | None = None
 
 
 class SeatLockResponse(BaseModel):
     seat_id: UUID
     status: SeatStatus
     expires_in: int
+    locked_at: datetime | None = None

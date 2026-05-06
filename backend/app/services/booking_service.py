@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
 
@@ -20,7 +20,7 @@ from app.schemas.booking import (
     BookingOut,
     PaymentOut,
 )
-from app.services.seat_service import LOCK_TTL_SECONDS, MAX_TICKETS_PER_USER
+from app.services.seat_service import BOOKING_TTL_SECONDS, LOCK_TTL_SECONDS, MAX_TICKETS_PER_USER
 from app.utils.enums import BookingStatus, SeatStatus, TicketStatus
 from app.models.ticket import Ticket
 
@@ -48,12 +48,9 @@ def _to_booking_out(booking: Booking, event: Event) -> BookingOut:
         if booking.payment
         else None
     )
-    expires_at = (
-        (booking.items[0].seat.locked_at or booking.created_at)
-        + timedelta(seconds=LOCK_TTL_SECONDS)
-        if booking.items
-        else booking.created_at + timedelta(seconds=LOCK_TTL_SECONDS)
-    )
+    # Booking timer is based on booking.updated_at (reset each time user enters checkout).
+    # This keeps locked_at as the original lock time for seat-selection countdowns.
+    expires_at = booking.updated_at + timedelta(seconds=BOOKING_TTL_SECONDS)
     return BookingOut(
         id=booking.id,
         event_id=booking.event_id,
@@ -150,34 +147,57 @@ class BookingService:
                 f"LIMIT_REACHED: You can only own a maximum of {MAX_TICKETS_PER_USER} tickets for this event.",
             )
 
-        # existing_stmt = (
-        #     select(BookingItem)
-        #     .where(BookingItem.seat_id.in_(seat_ids))
-        #     .options(selectinload(BookingItem.booking))
-        # )
-        # existing_items = list((await self.db.execute(existing_stmt)).scalars().all())
-        # if existing_items:
-        #     booking = existing_items[0].booking
-        #     if (
-        #         booking
-        #         and booking.user_id == user_id
-        #         and booking.status == BookingStatus.PENDING
-        #         and booking.event_id == event_id
-        #         and all(item.booking_id == booking.id for item in existing_items)
-        #     ):
-        #         booking, event = await self._load_booking(booking.id)
-        #         return _to_booking_out(booking, event)
-        #     raise HTTPException(
-        #         status.HTTP_409_CONFLICT,
-        #         "One or more seats are already booked",
-        #     )
+        # --- Safety net: clean up stale BookingItems for these seats ---
+        # BookingItem.seat_id is UNIQUE. Normally, the frontend calls
+        # dismiss() on unmount, so no stale items should exist. This is
+        # a fallback for race conditions / crashed clients.
+        from sqlalchemy import delete as sa_delete
+
+        stale_stmt = (
+            select(BookingItem)
+            .where(BookingItem.seat_id.in_(seat_ids))
+            .options(selectinload(BookingItem.booking))
+        )
+        stale_items = list((await self.db.execute(stale_stmt)).scalars().all())
+        if stale_items:
+            stale_booking_ids: set[UUID] = set()
+            for item in stale_items:
+                if not item.booking:
+                    continue
+                b = item.booking
+                if b.status in (BookingStatus.EXPIRED, BookingStatus.CANCELLED):
+                    stale_booking_ids.add(b.id)
+                elif b.status == BookingStatus.PENDING and b.user_id == user_id:
+                    # User's own stale pending booking (dismiss didn't complete).
+                    stale_booking_ids.add(b.id)
+                elif b.status in (BookingStatus.PENDING, BookingStatus.CONFIRMED):
+                    raise HTTPException(
+                        status.HTTP_409_CONFLICT,
+                        "One or more seats are already booked",
+                    )
+            if stale_booking_ids:
+                await self.db.execute(
+                    sa_delete(BookingItem).where(BookingItem.booking_id.in_(stale_booking_ids))
+                )
+                await self.db.execute(
+                    sa_delete(Booking).where(Booking.id.in_(stale_booking_ids))
+                )
+                await self.db.flush()
 
         total: Decimal = sum((s.zone.price for s in seats), Decimal(0))
+
+        # Do NOT reset locked_at here — it must stay as the original lock time
+        # so that seat-selection timers continue correctly on browser-back.
+        # The booking timer uses booking.created_at instead.
+
+        now_utc = datetime.now(UTC)
         booking = Booking(
             user_id=user_id,
             event_id=event_id,
             total_amount=total,
             status=BookingStatus.PENDING,
+            created_at=now_utc,
+            updated_at=now_utc,
         )
         self.db.add(booking)
         await self.db.flush()
@@ -199,6 +219,49 @@ class BookingService:
         if booking.user_id != user_id:
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Not your booking")
         return _to_booking_out(booking, event)
+
+    async def dismiss(self, booking_id: UUID, user_id: UUID) -> None:
+        """Delete booking + items but keep seats LOCKED.
+
+        Called when user navigates away from checkout (browser back).
+        Seats remain locked with their original locked_at so the
+        seat-selection timer can resume.
+        """
+        from sqlalchemy import delete as sa_delete
+
+        booking, _ = await self._load_booking(booking_id)
+        if booking.user_id != user_id:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Not your booking")
+        if booking.status != BookingStatus.PENDING:
+            return  # Nothing to dismiss.
+
+        # Shift locked_at forward by the time the user spent on the checkout
+        # page.  This implements pause/resume: if a seat had 10 s remaining
+        # when the user entered checkout and they spent 20 s there, the seat
+        # will still have 10 s remaining when they come back.
+        #
+        #   pause_duration  = now - booking.updated_at
+        #   new_locked_at   = old_locked_at + pause_duration
+        #   remaining       = TTL - (now - new_locked_at)   ← unchanged
+        seat_ids = [item.seat_id for item in booking.items]
+        if seat_ids:
+            from sqlalchemy import update as sa_update
+
+            pause_duration = datetime.now(UTC) - booking.updated_at
+            await self.db.execute(
+                sa_update(Seat)
+                .where(Seat.id.in_(seat_ids))
+                .where(Seat.status == SeatStatus.LOCKED)
+                .values(locked_at=Seat.locked_at + pause_duration)
+            )
+
+        await self.db.execute(
+            sa_delete(BookingItem).where(BookingItem.booking_id == booking.id)
+        )
+        await self.db.execute(
+            sa_delete(Booking).where(Booking.id == booking.id)
+        )
+        await self.db.commit()
 
     async def cancel(
         self, booking_id: UUID, user_id: UUID, redis: Redis

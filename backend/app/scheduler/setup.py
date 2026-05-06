@@ -15,7 +15,7 @@ def start_scheduler() -> None:
     scheduler.add_job(
         sweep_expired_seats,
         "interval",
-        seconds=15,
+        seconds=3,
         id="sweep_expired_seats",
         replace_existing=True,
         max_instances=1,

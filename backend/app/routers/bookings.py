@@ -61,3 +61,16 @@ async def cancel_booking(
     redis: Redis = Depends(get_redis),
 ):
     return await BookingService(db).cancel(booking_id, user.id, redis)
+
+
+@router.post("/{booking_id}/dismiss", status_code=status.HTTP_204_NO_CONTENT)
+async def dismiss_booking(
+    booking_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete booking + items but keep seats locked.
+
+    Called when the user navigates away from checkout (browser back).
+    """
+    await BookingService(db).dismiss(booking_id, user.id)

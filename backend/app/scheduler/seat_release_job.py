@@ -10,13 +10,13 @@ from app.database import async_session_maker
 from app.models.booking import Booking, BookingItem
 from app.models.seat import Seat
 from app.redis import get_redis
-from app.services.seat_service import LOCK_TTL_SECONDS
+from app.services.seat_service import BOOKING_TTL_SECONDS, SEAT_LOCK_TTL_SECONDS
 from app.utils.enums import BookingStatus, SeatStatus
 
 log = logging.getLogger(__name__)
 
 SWEEP_LOCK_KEY = "lock:sweep_seats"
-SWEEP_LOCK_TTL = 14  # seconds — must be < interval (15s) for next tick to retry
+SWEEP_LOCK_TTL = 2  # seconds — must be < interval (3s) for next tick to retry
 
 
 async def _publish_release(redis: Redis, event_id, seat: Seat) -> None:
@@ -35,7 +35,7 @@ async def _publish_release(redis: Redis, event_id, seat: Seat) -> None:
 
 
 async def sweep_expired_seats() -> None:
-    """Runs every 15s. Releases seats whose lock has exceeded LOCK_TTL_SECONDS."""
+    """Runs every 3s. Releases seats whose lock has exceeded their TTL."""
     redis = await get_redis()
     acquired = await redis.set(SWEEP_LOCK_KEY, "1", nx=True, ex=SWEEP_LOCK_TTL)
     if not acquired:
@@ -43,14 +43,46 @@ async def sweep_expired_seats() -> None:
 
     try:
         async with async_session_maker() as db:
-            cutoff = datetime.now(UTC) - timedelta(seconds=LOCK_TTL_SECONDS)
+            # Use the shorter of the two TTLs as cutoff to find *candidates*,
+            # then decide per-seat which TTL applies.
+            min_ttl = min(SEAT_LOCK_TTL_SECONDS, BOOKING_TTL_SECONDS)
+            cutoff = datetime.now(UTC) - timedelta(seconds=min_ttl)
             stmt = (
                 select(Seat)
                 .where(Seat.status == SeatStatus.LOCKED)
                 .where(Seat.locked_at < cutoff)
                 .options(selectinload(Seat.zone))
             )
-            expired = list((await db.execute(stmt)).scalars().all())
+            candidates = list((await db.execute(stmt)).scalars().all())
+            if not candidates:
+                return
+
+            # Find which seats belong to a PENDING booking and get booking.updated_at.
+            candidate_ids = [s.id for s in candidates]
+            b_item_stmt = (
+                select(BookingItem.seat_id, Booking.status, Booking.updated_at)
+                .join(Booking, BookingItem.booking_id == Booking.id)
+                .where(BookingItem.seat_id.in_(candidate_ids))
+            )
+            seat_booking_info: dict[str, tuple[str, datetime]] = {}
+            for row in (await db.execute(b_item_stmt)).all():
+                seat_booking_info[str(row[0])] = (row[1], row[2])
+
+            now = datetime.now(UTC)
+            expired: list[Seat] = []
+            for seat in candidates:
+                sid = str(seat.id)
+                info = seat_booking_info.get(sid)
+                if info and info[0] == BookingStatus.PENDING:
+                    # Seat in a PENDING booking → expire based on booking.updated_at
+                    booking_updated = info[1]
+                    if (now - booking_updated).total_seconds() >= BOOKING_TTL_SECONDS:
+                        expired.append(seat)
+                else:
+                    # Standalone locked seat → expire based on locked_at
+                    if seat.locked_at and (now - seat.locked_at).total_seconds() >= SEAT_LOCK_TTL_SECONDS:
+                        expired.append(seat)
+
             if not expired:
                 return
 
@@ -61,7 +93,7 @@ async def sweep_expired_seats() -> None:
                 seat.locked_at = None
                 released.append(seat)
 
-            # Mark associated pending bookings as EXPIRED when all their seats are released.
+            # Mark associated pending bookings as EXPIRED when their seats are released.
             seat_ids = [s.id for s in released]
             b_stmt = (
                 select(Booking)
@@ -76,7 +108,7 @@ async def sweep_expired_seats() -> None:
             await db.commit()
 
             for seat in released:
-                await _publish_release(redis, seat.zone.event_id, seat)
+                await _publish_release(redis, seat.event_id, seat)
 
             log.info("Released %d expired seat locks", len(released))
     finally:

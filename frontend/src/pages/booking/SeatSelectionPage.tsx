@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -7,19 +7,48 @@ import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/hooks/useAuth";
 import { useSeatWebSocket } from "@/hooks/useSeatWebSocket";
 import { ApiError, bookingApi, eventApi, seatApi } from "@/services/api";
-import { useSeatStore } from "@/store/seatStore";
+import { SEAT_LOCK_TTL, useSeatStore } from "@/store/seatStore";
 import type { SeatWithZone } from "@/types/booking";
 import type { Zone } from "@/types/catalog";
 import { formatCurrency, formatDateTime } from "@/utils/format";
+
+function formatCountdown(secondsLeft: number): string {
+  if (secondsLeft <= 0) return "00:00";
+  const m = Math.floor(secondsLeft / 60);
+  const s = secondsLeft % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+function getRemainingSeconds(lockedAt: string): number {
+  const lockTime = new Date(lockedAt).getTime();
+  const expiry = lockTime + SEAT_LOCK_TTL * 1000;
+  return Math.max(0, Math.floor((expiry - Date.now()) / 1000));
+}
 
 export function SeatSelectionPage() {
   const { id: eventId = "" } = useParams<{ id: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const { seats, selectedIds, setAll, applyUpdate, toggleSelect, setSelected } =
-    useSeatStore();
+  const {
+    seats,
+    selectedIds,
+    lockTimers,
+    setAll,
+    applyUpdate,
+    toggleSelect,
+    setSelected,
+    setLockTime,
+    removeLockTime,
+  } = useSeatStore();
   const [error, setError] = useState<string | null>(null);
+  // Tick state to force re-render every second for countdowns.
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   const eventQ = useQuery({
     queryKey: ["event", eventId],
@@ -30,6 +59,7 @@ export function SeatSelectionPage() {
     queryKey: ["event", eventId, "seats"],
     queryFn: () => seatApi.listForEvent(eventId),
     enabled: Boolean(eventId),
+    placeholderData: keepPreviousData,
   });
 
   useEffect(() => {
@@ -37,28 +67,54 @@ export function SeatSelectionPage() {
     return () => setSelected([]);
   }, [eventId, setSelected]);
 
+  // Always push seat data into the canvas store (even from cache).
   useEffect(() => {
     if (seatsQ.data) {
       setAll(seatsQ.data);
-      if (user) {
-        const mine = seatsQ.data
-          .filter((s) => s.status === "LOCKED" && s.locked_by === user.id)
-          .map((s) => s.id);
-        
-        const currentSelected = useSeatStore.getState().selectedIds;
-        const toAdd = mine.filter(id => !currentSelected.includes(id));
-        if (toAdd.length > 0) {
-          setSelected([...currentSelected, ...toAdd]);
+    }
+  }, [seatsQ.data, setAll]);
+
+  // Sync selectedIds + lockTimers only from FRESH data (skip stale cache).
+  // When stale cache is returned first, isFetching=true → skip.
+  // When background refetch completes, isFetching=false → sync.
+  useEffect(() => {
+    if (seatsQ.data && !seatsQ.isFetching && user) {
+      const mine = seatsQ.data.filter(
+        (s) => s.status === "LOCKED" && s.locked_by === user.id,
+      );
+      setSelected(mine.map((s) => s.id));
+      for (const s of mine) {
+        if (s.locked_at) {
+          setLockTime(s.id, s.locked_at);
         }
       }
     }
-  }, [seatsQ.data, setAll, user, setSelected]);
+  }, [seatsQ.data, seatsQ.isFetching, user, setSelected, setLockTime]);
 
   useSeatWebSocket(eventId, (msg) => {
     applyUpdate(msg.seat_id, {
       status: msg.status,
       locked_by: msg.locked_by,
     });
+  });
+
+  // Auto-deselect seats whose timer expired.
+  useEffect(() => {
+    const timers = useSeatStore.getState().lockTimers;
+    const ids = useSeatStore.getState().selectedIds;
+    const expiredIds = ids.filter((id) => {
+      const lockedAt = timers[id];
+      if (!lockedAt) return false;
+      return getRemainingSeconds(lockedAt) <= 0;
+    });
+    if (expiredIds.length > 0) {
+      setSelected(ids.filter((id) => !expiredIds.includes(id)));
+      for (const id of expiredIds) {
+        removeLockTime(id);
+        // Optimistic: update canvas immediately instead of waiting for sweeper.
+        applyUpdate(id, { status: "AVAILABLE", locked_by: null });
+      }
+    }
   });
 
   const seatsArray = useMemo(() => Object.values(seats), [seats]);
@@ -113,15 +169,20 @@ export function SeatSelectionPage() {
           await unlock.mutateAsync(seat.id);
           applyUpdate(seat.id, { status: "AVAILABLE", locked_by: null });
           setSelected(selectedIds.filter((x) => x !== seat.id));
+          removeLockTime(seat.id);
         } catch (err) {
           setError(err instanceof ApiError ? err.message : "Failed to release seat");
         }
         return;
       }
       try {
-        await lock.mutateAsync(seat.id);
+        const res = await lock.mutateAsync(seat.id);
         applyUpdate(seat.id, { status: "LOCKED", locked_by: user.id });
         toggleSelect(seat.id);
+        // Store server locked_at for countdown.
+        if (res.locked_at) {
+          setLockTime(seat.id, res.locked_at);
+        }
       } catch (err) {
         setError(
           err instanceof ApiError ? err.message : "Seat is no longer available",
@@ -133,7 +194,9 @@ export function SeatSelectionPage() {
       eventId,
       lock,
       navigate,
+      removeLockTime,
       selectedIds,
+      setLockTime,
       setSelected,
       toggleSelect,
       unlock,
@@ -170,7 +233,11 @@ export function SeatSelectionPage() {
   });
 
   const event = eventQ.data;
-  const loading = eventQ.isLoading || seatsQ.isLoading;
+  // Show loading only when there's truly no data — not even stale data in the
+  // Zustand store from before navigation.  This eliminates the 0.5 s flash
+  // when pressing browser-back from checkout.
+  const loading =
+    eventQ.isLoading || (seatsQ.isLoading && seatsArray.length === 0);
 
   return (
     <div className="flex flex-col gap-6">
@@ -248,7 +315,7 @@ export function SeatSelectionPage() {
                 Your selection
               </h2>
               <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                Seats are held for 10 minutes while you check out.
+                Each seat is held for {SEAT_LOCK_TTL}s while you check out.
               </p>
             </div>
             {selected.length === 0 ? (
@@ -257,30 +324,49 @@ export function SeatSelectionPage() {
               </p>
             ) : (
               <ul className="flex flex-col gap-2 text-sm">
-                {selected.map((s) => (
-                  <li
-                    key={s.id}
-                    className="flex items-center justify-between rounded-lg border px-3 py-2"
-                    style={{
-                      borderColor: "var(--border-primary)",
-                      color: "var(--text-secondary)",
-                    }}
-                  >
-                    <span className="flex items-center gap-2">
-                      <span
-                        className="h-3 w-3 rounded-full"
-                        style={{ backgroundColor: s.zone_color ?? "#4b5563" }}
-                      />
-                      {s.zone_name} · R{s.row_number} S{s.seat_number}
-                    </span>
-                    <span
-                      className="font-semibold"
-                      style={{ color: "var(--text-primary)" }}
+                {selected.map((s) => {
+                  const lockedAt = lockTimers[s.id];
+                  const remaining = lockedAt
+                    ? getRemainingSeconds(lockedAt)
+                    : SEAT_LOCK_TTL;
+                  const urgent = remaining <= 15;
+                  return (
+                    <li
+                      key={s.id}
+                      className="flex items-center justify-between rounded-lg border px-3 py-2"
+                      style={{
+                        borderColor: urgent
+                          ? "var(--danger)"
+                          : "var(--border-primary)",
+                        color: "var(--text-secondary)",
+                      }}
                     >
-                      {formatCurrency(s.price ?? "0")}
-                    </span>
-                  </li>
-                ))}
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="h-3 w-3 rounded-full"
+                          style={{ backgroundColor: s.zone_color ?? "#4b5563" }}
+                        />
+                        {s.zone_name} · R{s.row_number} S{s.seat_number}
+                      </span>
+                      <span className="flex items-center gap-3">
+                        <span
+                          className="font-mono text-xs tabular-nums"
+                          style={{
+                            color: urgent ? "var(--danger)" : "var(--text-muted)",
+                          }}
+                        >
+                          {formatCountdown(remaining)}
+                        </span>
+                        <span
+                          className="font-semibold"
+                          style={{ color: "var(--text-primary)" }}
+                        >
+                          {formatCurrency(s.price ?? "0")}
+                        </span>
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             )}
             <div

@@ -10,7 +10,7 @@ from app.models.user import User
 from app.redis import get_redis
 from app.schemas.seat import SeatLockResponse, SeatWithZone
 from app.services.seat_service import (
-    LOCK_TTL_SECONDS,
+    SEAT_LOCK_TTL_SECONDS,
     SeatService,
     list_seats_for_event,
 )
@@ -33,6 +33,7 @@ async def list_seats(event_id: UUID, db: AsyncSession = Depends(get_db)):
             seat_number=s.seat_number,
             status=s.status,
             locked_by=s.locked_by,
+            locked_at=s.locked_at,
         )
         for s in seats
     ]
@@ -51,7 +52,10 @@ async def lock_seat(
 ):
     seat = await SeatService(db, redis).lock(seat_id, user.id)
     return SeatLockResponse(
-        seat_id=seat.id, status=seat.status, expires_in=LOCK_TTL_SECONDS
+        seat_id=seat.id,
+        status=seat.status,
+        expires_in=SEAT_LOCK_TTL_SECONDS,
+        locked_at=seat.locked_at,
     )
 
 

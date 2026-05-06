@@ -17,8 +17,12 @@ from app.utils.enums import SeatStatus, TicketStatus
 
 log = logging.getLogger(__name__)
 
-# Matches plan §3.3: users have 10 minutes from lock to confirm payment.
-LOCK_TTL_SECONDS = 10 * 60
+# Seat selection phase: time user has to decide & proceed to checkout.
+SEAT_LOCK_TTL_SECONDS = 60  # 1 min for demo (production: 10 * 60)
+# Booking/checkout phase: time user has to complete payment after creating booking.
+BOOKING_TTL_SECONDS = 60  # 1 min for demo (production: 10 * 60)
+# Backward-compat alias used by booking_service / scheduler.
+LOCK_TTL_SECONDS = SEAT_LOCK_TTL_SECONDS
 # Redis micro-lock for the lock operation itself (filters 99.9% of contention).
 REDIS_GUARD_TTL = 5
 
