@@ -10,6 +10,7 @@ import { ProfilePage } from "@/pages/account/ProfilePage";
 import { DashboardPage } from "@/pages/admin/DashboardPage";
 import { EventsPage } from "@/pages/admin/EventsPage";
 import { PaymentsPage } from "@/pages/admin/PaymentsPage";
+import { QueueDashboardPage } from "@/pages/admin/QueueDashboardPage";
 import { SeatEditorPage } from "@/pages/admin/SeatEditorPage";
 import { UsersPage } from "@/pages/admin/UsersPage";
 import { VenuesPage } from "@/pages/admin/VenuesPage";
@@ -93,6 +94,7 @@ function App() {
                 <Route path="dashboard" element={<DashboardPage />} />
                 <Route path="events" element={<EventsPage />} />
                 <Route path="events/:id/seats" element={<SeatEditorPage />} />
+                <Route path="events/:id/queue" element={<QueueDashboardPage />} />
                 <Route path="venues" element={<VenuesPage />} />
                 <Route path="users" element={<UsersPage />} />
                 <Route path="payments" element={<PaymentsPage />} />

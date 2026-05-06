@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
 import { AdminActionBar } from "@/components/admin/AdminActionBar";
-import { AdminQueueModal } from "@/components/admin/AdminQueueModal";
 import {
   AdminFilterModal,
   countActiveFilters,
@@ -61,9 +60,7 @@ export function EventsPage() {
   const [statusConfirm, setStatusConfirm] = useState<{ id: string; title: string; status: EventStatus } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ── Queue management ──
-  const [queueModalOpen, setQueueModalOpen] = useState(false);
-  const [queueEventId, setQueueEventId] = useState<string | null>(null);
+
 
   // ── Search & Filter ──
   const [search, setSearch] = useState("");
@@ -205,10 +202,7 @@ export function EventsPage() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const openQueueModal = (eventId: string) => {
-    setQueueEventId(eventId);
-    setQueueModalOpen(true);
-  };
+
 
   const events: EventSummary[] = eventsQ.data ?? [];
   const venues = venuesQ.data ?? [];
@@ -347,14 +341,13 @@ export function EventsPage() {
                         >
                           Gallery
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => openQueueModal(e.id)}
+                        <Link
+                          to={`/admin/events/${e.id}/queue`}
                           className="text-sm font-medium transition hover:opacity-80"
                           style={{ color: "var(--accent)" }}
                         >
                           Queue
-                        </button>
+                        </Link>
                         <Link
                           to={`/admin/events/${e.id}/seats`}
                           className="text-sm font-medium transition hover:opacity-80"
@@ -563,12 +556,6 @@ export function EventsPage() {
         </div>
       </Modal>
 
-      {/* Queue Management Modal */}
-      <AdminQueueModal
-        open={queueModalOpen}
-        onClose={() => setQueueModalOpen(false)}
-        eventId={queueEventId}
-      />
     </div>
   );
 }
