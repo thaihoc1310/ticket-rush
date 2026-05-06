@@ -257,3 +257,32 @@ export const userApi = {
 export const paymentApi = {
   list: () => request<PaymentAdmin[]>("/payments"),
 };
+
+// ── Queue ───────────────────────────────────────────────────────────────
+import type {
+  QueueConfigIn,
+  QueueConfigOut,
+  QueueJoinOut,
+  QueueStatusOut,
+  QueueUsersOut,
+} from "@/types/queue";
+
+export const queueApi = {
+  configure: (eventId: string, payload: QueueConfigIn) =>
+    request<QueueConfigOut>(`/queue/${eventId}/configure`, {
+      method: "POST",
+      body: payload,
+    }),
+  getConfig: (eventId: string) =>
+    request<QueueConfigOut>(`/queue/${eventId}/config`),
+  listUsers: (eventId: string) =>
+    request<QueueUsersOut>(`/queue/${eventId}/users`),
+  kick: (eventId: string, userId: string) =>
+    request<void>(`/queue/${eventId}/kick/${userId}`, { method: "POST" }),
+  join: (eventId: string) =>
+    request<QueueJoinOut>(`/queue/${eventId}/join`, { method: "POST" }),
+  status: (eventId: string) =>
+    request<QueueStatusOut>(`/queue/${eventId}/status`),
+  leave: (eventId: string) =>
+    request<void>(`/queue/${eventId}/leave`, { method: "POST" }),
+};

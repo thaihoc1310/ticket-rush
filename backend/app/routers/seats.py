@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,6 +9,7 @@ from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.redis import get_redis
 from app.schemas.seat import SeatLockResponse, SeatWithZone
+from app.services.queue_service import QueueService
 from app.services.seat_service import (
     SEAT_LOCK_TTL_SECONDS,
     SeatService,
@@ -50,6 +51,25 @@ async def lock_seat(
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
 ):
+    # ── Queue guard: if queue is active, user must be in the granted set ──
+    # We need the event_id to check. Load the seat first for the FK.
+    from sqlalchemy import select
+    from app.models.seat import Seat
+
+    result = await db.execute(select(Seat.event_id).where(Seat.id == seat_id))
+    row = result.one_or_none()
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Seat not found")
+    event_id = row[0]
+
+    queue_svc = QueueService(redis)
+    if await queue_svc.is_queue_active(event_id):
+        if not await queue_svc.is_user_granted(event_id, user.id):
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "You must wait in the queue before selecting seats",
+            )
+
     seat = await SeatService(db, redis).lock(seat_id, user.id)
     return SeatLockResponse(
         seat_id=seat.id,

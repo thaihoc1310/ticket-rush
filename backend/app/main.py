@@ -14,6 +14,7 @@ from app.routers import bookings as bookings_router
 from app.routers import dashboard as dashboard_router
 from app.routers import events as events_router
 from app.routers import payments as payments_router
+from app.routers import queue as queue_router
 from app.routers import seats as seats_router
 from app.routers import tickets as tickets_router
 from app.routers import uploads as uploads_router
@@ -21,8 +22,12 @@ from app.routers import users as users_router
 from app.routers import venues as venues_router
 from app.routers import zones as zones_router
 from app.scheduler.setup import shutdown_scheduler, start_scheduler
-from app.ws import seats_ws
-from app.ws.pubsub import run_seat_pubsub_listener
+from app.ws import admin_queue_ws, queue_ws, seats_ws
+from app.ws.pubsub import (
+    run_admin_queue_pubsub_listener,
+    run_queue_pubsub_listener,
+    run_seat_pubsub_listener,
+)
 
 log = logging.getLogger(__name__)
 
@@ -34,19 +39,30 @@ async def lifespan(app: FastAPI):
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     get_redis_pool()
     redis = await get_redis()
-    pubsub_task = asyncio.create_task(run_seat_pubsub_listener(redis))
+    seat_pubsub_task = asyncio.create_task(run_seat_pubsub_listener(redis))
+    # Queue pub/sub needs its own Redis connection (separate pubsub state)
+    queue_redis = await get_redis()
+    queue_pubsub_task = asyncio.create_task(run_queue_pubsub_listener(queue_redis))
+    # Admin queue pub/sub — separate connection
+    admin_queue_redis = await get_redis()
+    admin_queue_pubsub_task = asyncio.create_task(
+        run_admin_queue_pubsub_listener(admin_queue_redis)
+    )
     start_scheduler()
     try:
         yield
     finally:
         shutdown_scheduler()
-        pubsub_task.cancel()
-        try:
-            await pubsub_task
-        except asyncio.CancelledError:
-            pass
-        except Exception:  # noqa: BLE001
-            log.exception("Error shutting down pub/sub listener")
+        seat_pubsub_task.cancel()
+        queue_pubsub_task.cancel()
+        admin_queue_pubsub_task.cancel()
+        for task in (seat_pubsub_task, queue_pubsub_task, admin_queue_pubsub_task):
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            except Exception:  # noqa: BLE001
+                log.exception("Error shutting down pub/sub listener")
 
 
 def create_app() -> FastAPI:
@@ -79,7 +95,10 @@ def create_app() -> FastAPI:
     app.include_router(uploads_router.router)
     app.include_router(payments_router.router)
     app.include_router(users_router.router)
+    app.include_router(queue_router.router)
     app.include_router(seats_ws.router)
+    app.include_router(queue_ws.router)
+    app.include_router(admin_queue_ws.router)
 
     @app.get("/api/health", tags=["health"])
     async def health() -> dict[str, str]:

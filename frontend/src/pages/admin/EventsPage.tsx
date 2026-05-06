@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
 import { AdminActionBar } from "@/components/admin/AdminActionBar";
+import { AdminQueueModal } from "@/components/admin/AdminQueueModal";
 import {
   AdminFilterModal,
   countActiveFilters,
@@ -22,6 +23,7 @@ import type {
   EventSummary,
 } from "@/types/catalog";
 import { formatDateTime } from "@/utils/format";
+
 
 const PAGE_SIZE = 10;
 const STATUSES: EventStatus[] = ["DRAFT", "PUBLISHED", "ENDED"];
@@ -58,6 +60,10 @@ export function EventsPage() {
   const [error, setError] = useState<string | null>(null);
   const [statusConfirm, setStatusConfirm] = useState<{ id: string; title: string; status: EventStatus } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Queue management ──
+  const [queueModalOpen, setQueueModalOpen] = useState(false);
+  const [queueEventId, setQueueEventId] = useState<string | null>(null);
 
   // ── Search & Filter ──
   const [search, setSearch] = useState("");
@@ -199,6 +205,11 @@ export function EventsPage() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const openQueueModal = (eventId: string) => {
+    setQueueEventId(eventId);
+    setQueueModalOpen(true);
+  };
+
   const events: EventSummary[] = eventsQ.data ?? [];
   const venues = venuesQ.data ?? [];
   const galleryImages: EventImage[] = galleryEvent
@@ -335,6 +346,14 @@ export function EventsPage() {
                           style={{ color: "var(--accent)" }}
                         >
                           Gallery
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openQueueModal(e.id)}
+                          className="text-sm font-medium transition hover:opacity-80"
+                          style={{ color: "var(--accent)" }}
+                        >
+                          Queue
                         </button>
                         <Link
                           to={`/admin/events/${e.id}/seats`}
@@ -543,6 +562,13 @@ export function EventsPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Queue Management Modal */}
+      <AdminQueueModal
+        open={queueModalOpen}
+        onClose={() => setQueueModalOpen(false)}
+        eventId={queueEventId}
+      />
     </div>
   );
 }

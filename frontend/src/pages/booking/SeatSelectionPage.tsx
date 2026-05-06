@@ -1,13 +1,15 @@
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import ReconnectingWebSocket from "reconnecting-websocket";
 
 import { SeatCanvas, type SeatVisual } from "@/components/seating/SeatCanvas";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/hooks/useAuth";
 import { useSeatWebSocket } from "@/hooks/useSeatWebSocket";
-import { ApiError, bookingApi, eventApi, seatApi } from "@/services/api";
+import { ApiError, bookingApi, eventApi, queueApi, seatApi } from "@/services/api";
 import { SEAT_LOCK_TTL, useSeatStore } from "@/store/seatStore";
+import { useQueueStore } from "@/store/queueStore";
 import type { SeatWithZone } from "@/types/booking";
 import type { Zone } from "@/types/catalog";
 import { formatCurrency, formatDateTime } from "@/utils/format";
@@ -29,6 +31,97 @@ export function SeatSelectionPage() {
   const { id: eventId = "" } = useParams<{ id: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [queueChecked, setQueueChecked] = useState(false);
+  /** true when user is navigating to checkout — skip releasing queue slot */
+  const goingToCheckout = useRef(false);
+  /** true when queue was active and user was granted access */
+  const wasQueueGranted = useRef(false);
+
+  // ── Session TTL state ──
+  const [sessionTtl, setSessionTtl] = useState<number | null>(null); // seconds
+  const [grantedAt, setGrantedAt] = useState<number | null>(null); // unix ts
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  // ── Queue gate: check if user needs to wait ──
+  useEffect(() => {
+    if (!eventId || !user) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await queueApi.join(eventId);
+        if (cancelled) return;
+        if (res.status === "WAITING") {
+          useQueueStore.getState().setStatus("WAITING");
+          useQueueStore.getState().setPosition(res.position, res.queue_size);
+          useQueueStore.getState().setEventId(eventId);
+          navigate(`/events/${eventId}/queue`, { replace: true });
+          return;
+        }
+        wasQueueGranted.current = res.status === "GRANTED";
+        if (res.status === "GRANTED" && res.session_ttl_seconds && res.granted_at) {
+          setSessionTtl(res.session_ttl_seconds);
+          setGrantedAt(res.granted_at);
+        }
+        setQueueChecked(true);
+      } catch {
+        setQueueChecked(true);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [eventId, user, navigate]);
+
+  // ── Release queue slot when leaving the page ──
+  useEffect(() => {
+    return () => {
+      if (goingToCheckout.current) return;
+      if (!wasQueueGranted.current) return;
+      queueApi.leave(eventId).catch(() => {});
+    };
+  }, [eventId]);
+
+  // ── Listen for server-side session_expired via queue WS ──
+  useEffect(() => {
+    if (!eventId || !user || !wasQueueGranted.current) return;
+
+    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const url = `${proto}//${window.location.host}/ws/queue/${eventId}`;
+    const ws = new ReconnectingWebSocket(url, [], {
+      maxRetries: 5,
+      maxReconnectionDelay: 10_000,
+      minReconnectionDelay: 500,
+      connectionTimeout: 4000,
+    });
+
+    const onMessage = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "session_expired" && data.user_id === user.id) {
+          setSessionExpired(true);
+        }
+      } catch { /* ignore */ }
+    };
+
+    ws.addEventListener("message", onMessage);
+    return () => {
+      ws.removeEventListener("message", onMessage);
+      ws.close();
+    };
+  }, [eventId, user]);
+
+  // ── Auto-kick when session expires (client-side or server-side) ──
+  useEffect(() => {
+    if (!sessionExpired) return;
+    // Unlock all selected seats and navigate away
+    const ids = useSeatStore.getState().selectedIds;
+    for (const id of ids) {
+      seatApi.unlock(id).catch(() => {});
+    }
+    wasQueueGranted.current = false; // prevent double leave
+    queueApi.leave(eventId).catch(() => {});
+    navigate(`/events/${eventId}`, { replace: true });
+  }, [sessionExpired, eventId, navigate]);
 
   const {
     seats,
@@ -116,6 +209,17 @@ export function SeatSelectionPage() {
       }
     }
   });
+
+  // Client-side session expiry check (runs every tick)
+  const sessionRemaining = sessionTtl && grantedAt
+    ? Math.max(0, Math.floor(grantedAt + sessionTtl - Date.now() / 1000))
+    : null;
+
+  useEffect(() => {
+    if (sessionRemaining !== null && sessionRemaining <= 0 && !sessionExpired) {
+      setSessionExpired(true);
+    }
+  }, [sessionRemaining, sessionExpired]);
 
   const seatsArray = useMemo(() => Object.values(seats), [seats]);
   const selected = useMemo(
@@ -226,6 +330,7 @@ export function SeatSelectionPage() {
     mutationFn: () => bookingApi.create(eventId, selectedIds),
     onSuccess: (booking) => {
       setSelected([]);
+      goingToCheckout.current = true;
       navigate(`/checkout/${booking.id}`);
     },
     onError: (err: unknown) =>
@@ -237,7 +342,7 @@ export function SeatSelectionPage() {
   // Zustand store from before navigation.  This eliminates the 0.5 s flash
   // when pressing browser-back from checkout.
   const loading =
-    eventQ.isLoading || (seatsQ.isLoading && seatsArray.length === 0);
+    !queueChecked || eventQ.isLoading || (seatsQ.isLoading && seatsArray.length === 0);
 
   return (
     <div className="flex flex-col gap-6">
@@ -262,6 +367,23 @@ export function SeatSelectionPage() {
           </p>
         )}
       </header>
+
+      {/* Session countdown banner */}
+      {sessionRemaining !== null && (
+        <div className={`session-countdown-banner ${sessionRemaining <= 120 ? "urgent" : ""}`}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+          <span>Session time remaining:</span>
+          <span className="session-countdown-time">
+            {formatCountdown(sessionRemaining)}
+          </span>
+          {sessionRemaining <= 120 && (
+            <span className="session-countdown-warning">Hurry up!</span>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <p className="text-sm" style={{ color: "var(--text-muted)" }}>

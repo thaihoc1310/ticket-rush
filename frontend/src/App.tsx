@@ -18,6 +18,7 @@ import { RegisterPage } from "@/pages/auth/RegisterPage";
 import { CheckoutPage } from "@/pages/booking/CheckoutPage";
 import { ConfirmationPage } from "@/pages/booking/ConfirmationPage";
 import { SeatSelectionPage } from "@/pages/booking/SeatSelectionPage";
+import { WaitingRoomPage } from "@/pages/booking/WaitingRoomPage";
 import { MyTicketsPage } from "@/pages/customer/MyTicketsPage";
 import { EventDetailPage } from "@/pages/public/EventDetailPage";
 import { EventListPage } from "@/pages/public/EventListPage";
@@ -46,6 +47,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <SeatSelectionPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="events/:id/queue"
+                element={
+                  <ProtectedRoute>
+                    <WaitingRoomPage />
                   </ProtectedRoute>
                 }
               />
