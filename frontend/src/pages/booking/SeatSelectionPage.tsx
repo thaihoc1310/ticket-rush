@@ -83,7 +83,7 @@ export function SeatSelectionPage() {
 
   // ── Listen for server-side session_expired via queue WS ──
   useEffect(() => {
-    if (!eventId || !user || !wasQueueGranted.current) return;
+    if (!eventId || !user || !queueChecked || !wasQueueGranted.current) return;
 
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
     const url = `${proto}//${window.location.host}/ws/queue/${eventId}`;
@@ -108,7 +108,7 @@ export function SeatSelectionPage() {
       ws.removeEventListener("message", onMessage);
       ws.close();
     };
-  }, [eventId, user]);
+  }, [eventId, user, queueChecked]);
 
   // ── Auto-kick when session expires (client-side or server-side) ──
   useEffect(() => {
@@ -368,23 +368,6 @@ export function SeatSelectionPage() {
         )}
       </header>
 
-      {/* Session countdown banner */}
-      {sessionRemaining !== null && (
-        <div className={`session-countdown-banner ${sessionRemaining <= 120 ? "urgent" : ""}`}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10" />
-            <polyline points="12 6 12 12 16 14" />
-          </svg>
-          <span>Session time remaining:</span>
-          <span className="session-countdown-time">
-            {formatCountdown(sessionRemaining)}
-          </span>
-          {sessionRemaining <= 120 && (
-            <span className="session-countdown-warning">Hurry up!</span>
-          )}
-        </div>
-      )}
-
       {loading ? (
         <p className="text-sm" style={{ color: "var(--text-muted)" }}>
           Loading seats…
@@ -402,6 +385,23 @@ export function SeatSelectionPage() {
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
+          {/* Session countdown banner */}
+          {sessionRemaining !== null && (
+            <div className={`session-countdown-banner lg:col-span-2 ${sessionRemaining <= 120 ? "urgent" : ""}`}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+              <span>Session time remaining:</span>
+              <span className="session-countdown-time">
+                {formatCountdown(sessionRemaining)}
+              </span>
+              {sessionRemaining <= 120 && (
+                <span className="session-countdown-warning">Hurry up!</span>
+              )}
+            </div>
+          )}
+
           <section
             className="rounded-2xl border p-3 shadow-sm"
             style={{

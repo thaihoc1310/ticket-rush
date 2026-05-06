@@ -140,7 +140,7 @@ export function QueueDashboardPage() {
 
       ws.addEventListener("open", () => setWsConnected(true));
       ws.addEventListener("close", () => setWsConnected(false));
-      ws.addEventListener("message", () => fetchData());
+      ws.addEventListener("message", () => { fetchData(); });
 
       wsRef.current = ws;
     }
