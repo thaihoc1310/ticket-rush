@@ -2,11 +2,12 @@ from pathlib import Path
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
 from app.schemas.auth import UserCreate, UserUpdate
+from app.utils.enums import Gender, Role
 from app.utils.security import hash_password
 
 
@@ -14,10 +15,51 @@ class UserService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def list(self, limit: int = 100, offset: int = 0) -> list[User]:
-        stmt = select(User).order_by(User.created_at.desc(), User.id.asc()).limit(limit).offset(offset)
+    async def list(
+        self,
+        *,
+        search: str | None = None,
+        roles: list[Role] | None = None,
+        genders: list[Gender] | None = None,
+        sort_by: str = "created_at",
+        sort_order: str = "desc",
+        limit: int = 10,
+        offset: int = 0,
+    ) -> tuple[list[User], int]:
+        stmt = select(User)
+
+        # Text search
+        if search:
+            like = f"%{search.lower()}%"
+            stmt = stmt.where(
+                or_(
+                    User.full_name.ilike(like),
+                    User.email.ilike(like),
+                )
+            )
+
+        # Role filter
+        if roles:
+            stmt = stmt.where(User.role.in_(roles))
+
+        # Gender filter
+        if genders:
+            stmt = stmt.where(User.gender.in_(genders))
+
+        # Count before pagination
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        total = (await self.db.execute(count_stmt)).scalar() or 0
+
+        # Sorting
+        allowed_sorts = {"full_name", "email", "role", "gender", "created_at"}
+        col_name = sort_by if sort_by in allowed_sorts else "created_at"
+        col = getattr(User, col_name)
+        stmt = stmt.order_by(col.desc() if sort_order == "desc" else col.asc(), User.id.asc())
+
+        # Pagination
+        stmt = stmt.limit(limit).offset(offset)
         result = await self.db.execute(stmt)
-        return list(result.scalars().all())
+        return list(result.scalars().all()), total
 
     async def get(self, user_id: UUID) -> User:
         user = await self.db.get(User, user_id)

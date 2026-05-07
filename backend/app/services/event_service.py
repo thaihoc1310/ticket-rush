@@ -18,7 +18,7 @@ class EventService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def list(
+    def _build_list_query(
         self,
         *,
         search: str | None = None,
@@ -30,9 +30,8 @@ class EventService:
         price_min: float | None = None,
         price_max: float | None = None,
         categories: list[str] | None = None,
-        limit: int = 50,
-        offset: int = 0,
-    ) -> list[Event]:
+    ):
+        """Build the base filtered query (without pagination/ordering)."""
         stmt = select(Event).options(selectinload(Event.venue), selectinload(Event.images))
 
         if search:
@@ -68,9 +67,56 @@ class EventService:
                 zone_subq = zone_subq.where(Zone.price <= price_max)
             stmt = stmt.where(Event.id.in_(zone_subq))
 
-        stmt = stmt.order_by(Event.event_date).limit(limit).offset(offset)
+        return stmt
+
+    async def list(
+        self,
+        *,
+        search: str | None = None,
+        city: str | None = None,
+        cities: list[str] | None = None,
+        status_filter: EventStatus | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+        price_min: float | None = None,
+        price_max: float | None = None,
+        categories: list[str] | None = None,
+        sort_by: str = "event_date",
+        sort_order: str = "asc",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[Event], int]:
+        stmt = self._build_list_query(
+            search=search,
+            city=city,
+            cities=cities,
+            status_filter=status_filter,
+            date_from=date_from,
+            date_to=date_to,
+            price_min=price_min,
+            price_max=price_max,
+            categories=categories,
+        )
+
+        # Count before pagination
+        count_stmt = select(func.count()).select_from(
+            select(Event.id).where(stmt.whereclause).subquery()
+            if stmt.whereclause is not None
+            else select(Event.id).subquery()
+        )
+        # Rebuild count from the filtered statement properly
+        count_stmt = select(func.count(func.distinct(Event.id))).select_from(stmt.subquery())
+        total = (await self.db.execute(count_stmt)).scalar() or 0
+
+        # Sorting
+        allowed_sorts = {"event_date", "title", "status", "created_at", "category"}
+        col_name = sort_by if sort_by in allowed_sorts else "event_date"
+        col = getattr(Event, col_name)
+        stmt = stmt.order_by(col.desc() if sort_order == "desc" else col.asc())
+
+        stmt = stmt.limit(limit).offset(offset)
         result = await self.db.execute(stmt)
-        return list(result.scalars().unique().all())
+        return list(result.scalars().unique().all()), total
 
     async def get_filter_meta(self) -> FilterMeta:
         """Return dynamic filter boundaries: price range, cities, categories."""

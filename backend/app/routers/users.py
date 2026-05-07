@@ -6,18 +6,41 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies.auth import require_admin
 from app.schemas.auth import UserCreate, UserOut, UserUpdate
+from app.schemas.pagination import PaginatedResponse
 from app.services.user_service import UserService
+from app.utils.enums import Gender, Role
 
 router = APIRouter(prefix="/api/users", tags=["users"], dependencies=[Depends(require_admin)])
 
 
-@router.get("", response_model=list[UserOut])
+@router.get("", response_model=PaginatedResponse[UserOut])
 async def list_users(
     db: AsyncSession = Depends(get_db),
-    limit: int = Query(default=100, ge=1, le=500),
+    q: str | None = Query(default=None, description="Search name or email"),
+    roles: str | None = Query(default=None, description="Comma-separated roles"),
+    genders: str | None = Query(default=None, description="Comma-separated genders"),
+    sort: str = Query(default="created_at", description="Sort field"),
+    order: str = Query(default="desc", regex="^(asc|desc)$"),
+    limit: int = Query(default=10, ge=1, le=200, alias="size"),
     offset: int = Query(default=0, ge=0),
+    page: int | None = Query(default=None, ge=1),
 ):
-    return await UserService(db).list(limit=limit, offset=offset)
+    if page is not None:
+        offset = (page - 1) * limit
+
+    role_list = [Role(r.strip()) for r in roles.split(",") if r.strip()] if roles else None
+    gender_list = [Gender(g.strip()) for g in genders.split(",") if g.strip()] if genders else None
+
+    items, total = await UserService(db).list(
+        search=q,
+        roles=role_list,
+        genders=gender_list,
+        sort_by=sort,
+        sort_order=order,
+        limit=limit,
+        offset=offset,
+    )
+    return PaginatedResponse(items=items, total=total)
 
 
 @router.get("/{user_id}", response_model=UserOut)

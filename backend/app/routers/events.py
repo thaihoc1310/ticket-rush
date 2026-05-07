@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies.auth import require_admin
 from app.schemas.event import EventCreate, EventDetail, EventSummary, EventUpdate, FilterMeta
+from app.schemas.pagination import PaginatedResponse
 from app.services.event_service import EventService
 from app.utils.enums import EventStatus
 
@@ -36,7 +37,7 @@ async def list_events(
     city_list = [c.strip() for c in cities.split(",") if c.strip()] if cities else None
     cat_list = [c.strip() for c in categories.split(",") if c.strip()] if categories else None
 
-    return await EventService(db).list(
+    items, _total = await EventService(db).list(
         search=q,
         city=city,
         cities=city_list,
@@ -49,6 +50,39 @@ async def list_events(
         limit=limit,
         offset=offset,
     )
+    return items
+
+
+@router.get(
+    "/admin",
+    response_model=PaginatedResponse[EventSummary],
+    dependencies=[Depends(require_admin)],
+)
+async def list_admin_events(
+    db: AsyncSession = Depends(get_db),
+    q: str | None = Query(default=None, description="search in title/description"),
+    status_filter: EventStatus | None = Query(default=None, alias="status"),
+    date_from: datetime | None = Query(default=None),
+    date_to: datetime | None = Query(default=None),
+    categories: str | None = Query(default=None, description="comma-separated categories"),
+    limit: int = Query(default=10, ge=1, le=200, alias="size"),
+    page: int | None = Query(default=None, ge=1),
+    offset: int = Query(default=0, ge=0),
+):
+    if page is not None:
+        offset = (page - 1) * limit
+
+    cat_list = [c.strip() for c in categories.split(",") if c.strip()] if categories else None
+    items, total = await EventService(db).list(
+        search=q,
+        status_filter=status_filter,
+        date_from=date_from,
+        date_to=date_to,
+        categories=cat_list,
+        limit=limit,
+        offset=offset,
+    )
+    return PaginatedResponse(items=items, total=total)
 
 
 @router.get("/{event_id}", response_model=EventDetail)

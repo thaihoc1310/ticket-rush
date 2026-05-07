@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.event import Event
@@ -14,9 +14,58 @@ class VenueService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def list(self) -> list[Venue]:
-        result = await self.db.execute(select(Venue).order_by(Venue.name))
-        return list(result.scalars().all())
+    async def list(
+        self,
+        *,
+        search: str | None = None,
+        cities: list[str] | None = None,
+        sort_by: str = "name",
+        sort_order: str = "asc",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[Venue], int]:
+        stmt = select(Venue)
+
+        # Text search
+        if search:
+            like = f"%{search.lower()}%"
+            stmt = stmt.where(
+                or_(
+                    Venue.name.ilike(like),
+                    Venue.address.ilike(like),
+                    Venue.city.ilike(like),
+                )
+            )
+
+        # City filter
+        if cities:
+            stmt = stmt.where(Venue.city.in_(cities))
+
+        # Count before pagination
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        total = (await self.db.execute(count_stmt)).scalar() or 0
+
+        # Sorting
+        allowed_sorts = {"name", "city", "created_at", "grid_rows", "grid_cols"}
+        col_name = sort_by if sort_by in allowed_sorts else "name"
+        col = getattr(Venue, col_name)
+        stmt = stmt.order_by(col.desc() if sort_order == "desc" else col.asc())
+
+        # Pagination
+        stmt = stmt.limit(limit).offset(offset)
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all()), total
+
+    async def filter_meta(self) -> dict:
+        """Return dynamic filter options for the venue list."""
+        city_stmt = (
+            select(Venue.city)
+            .distinct()
+            .order_by(Venue.city)
+        )
+        city_result = await self.db.execute(city_stmt)
+        cities = [r[0] for r in city_result.all()]
+        return {"cities": cities}
 
     async def get(self, venue_id: UUID) -> Venue:
         venue = await self.db.get(Venue, venue_id)
