@@ -470,7 +470,7 @@ body::before {
   overflow-y: auto;
   background: var(--background);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-floating);
+  box-shadow: none;
   animation: slideUp 200ms var(--ease-mechanical);
   position: relative;
 }
