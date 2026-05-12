@@ -40,8 +40,8 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
         aria-haspopup="true"
       >
         <span className="user-menu-avatar">
-          {user.avatar_url ? (
-            <img src={user.avatar_url} alt="" />
+          {user.avatar ? (
+            <img src={user.avatar} alt="" />
           ) : (
             <span className="user-menu-initials">{initials}</span>
           )}

@@ -9,6 +9,11 @@ export interface Venue {
   grid_cols: number;
 }
 
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+}
+
 export interface VenueCreatePayload {
   name: string;
   address: string;
@@ -48,7 +53,7 @@ export interface EventCreatePayload {
   category?: string | null;
 }
 
-export interface EventUpdatePayload extends Partial<EventCreatePayload> {}
+export type EventUpdatePayload = Partial<EventCreatePayload>;
 
 export interface Zone {
   id: string;

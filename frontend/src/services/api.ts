@@ -16,6 +16,7 @@ import type {
   EventSummary,
   EventUpdatePayload,
   FilterMeta,
+  PaginatedResponse,
   PaymentAdmin,
   Venue,
   VenueCreatePayload,
@@ -140,7 +141,8 @@ function buildQuery(params: Record<string, string | number | boolean | undefined
 }
 
 export const venueApi = {
-  list: () => request<Venue[]>("/venues", { auth: false }),
+  list: async () =>
+    (await request<PaginatedResponse<Venue>>("/venues?size=200", { auth: false })).items,
   get: (id: string) => request<Venue>(`/venues/${id}`, { auth: false }),
   create: (payload: VenueCreatePayload) =>
     request<Venue>("/venues", { method: "POST", body: payload }),
@@ -245,7 +247,8 @@ export const uploadApi = {
 };
 
 export const userApi = {
-  list: () => request<User[]>("/users"),
+  list: async () =>
+    (await request<PaginatedResponse<User>>("/users?size=200")).items,
   get: (id: string) => request<User>(`/users/${id}`),
   create: (payload: UserCreatePayload) =>
     request<User>("/users", { method: "POST", body: payload }),
@@ -255,7 +258,8 @@ export const userApi = {
 };
 
 export const paymentApi = {
-  list: () => request<PaymentAdmin[]>("/payments"),
+  list: async () =>
+    (await request<PaginatedResponse<PaymentAdmin>>("/payments?size=500")).items,
 };
 
 // ── Queue ───────────────────────────────────────────────────────────────

@@ -15,7 +15,7 @@ function formatCountdown(ms: number): string {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-const CHECKOUT_TTL_MS = 60_000; // 60 s checkout window
+const CHECKOUT_WARNING_MS = 30_000;
 
 // Module-level set to track mounted checkout pages.
 // Survives React StrictMode double-mount (mount → unmount → remount).
@@ -25,8 +25,6 @@ export function CheckoutPage() {
   const { bookingId = "" } = useParams<{ bookingId: string }>();
   const navigate = useNavigate();
   const [now, setNow] = useState(() => Date.now());
-  // Local deadline: always a fresh 60s window from when the page mounts.
-  const [deadline] = useState(() => Date.now() + CHECKOUT_TTL_MS);
   const [error, setError] = useState<string | null>(null);
   // Track whether payment succeeded so we don't dismiss a paid booking.
   const paidRef = useRef(false);
@@ -128,9 +126,10 @@ export function CheckoutPage() {
   }
 
   const booking = bookingQ.data;
-  // Use the local mount-based deadline so the timer always starts at 60s.
+  const deadline = Date.parse(booking.expires_at);
   const remaining = deadline - now;
   const expired = remaining <= 0 || booking.status === "EXPIRED";
+  const warning = !expired && remaining <= CHECKOUT_WARNING_MS;
   const canPay =
     booking.status === "PENDING" && !expired && pay.isPending === false;
   const canGoBack = booking.status === "PENDING" && !expired;
@@ -191,21 +190,21 @@ export function CheckoutPage() {
         className={`card p-6 text-center ${
           expired
             ? "bg-[var(--danger-bg)]"
-            : remaining < 60_000
+            : warning
               ? "bg-[var(--warning-bg)]"
               : ""
         }`}
         style={{
           boxShadow: expired
             ? "inset 0 0 0 2px var(--danger)"
-            : remaining < 60_000
+            : warning
               ? "inset 0 0 0 2px var(--warning)"
               : "var(--shadow-card)",
         }}
       >
         <div className="flex items-center justify-center gap-2">
           <LED
-            status={expired ? "danger" : remaining < 60_000 ? "warning" : "accent"}
+            status={expired ? "danger" : warning ? "warning" : "accent"}
             size="md"
           />
           <span className="font-mono text-[0.6875rem] font-bold uppercase tracking-wider text-[var(--text-muted)]">
@@ -216,7 +215,7 @@ export function CheckoutPage() {
           {formatCountdown(remaining)}
         </p>
         <p className="mt-2 text-xs text-[var(--text-muted)]">
-          Do not refresh — seats are held for you.
+          Seats are held until this countdown reaches zero.
         </p>
       </section>
 
