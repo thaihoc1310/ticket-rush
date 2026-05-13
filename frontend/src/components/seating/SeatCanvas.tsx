@@ -1,6 +1,6 @@
 import type { KonvaEventObject } from "konva/lib/Node";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Circle, Group, Layer, Line, Rect, Stage, Text } from "react-konva";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Group, Layer, Line, Rect, Stage, Text } from "react-konva";
 
 import { useTheme } from "@/components/ui/ThemeProvider";
 import type { SeatWithZone } from "@/types/booking";
@@ -23,7 +23,7 @@ export const SEAT_COLORS = {
   unassigned: "#475569",
   available: "#10b981",
   locked: "#94a3b8",
-  mine: "#8b5cf6",
+  mine: "#06b6d4",
   sold: "#64748b",
   selected: "#f43f5e",
 } as const;
@@ -32,7 +32,7 @@ const SEAT_STROKE = {
   unassigned: "#64748b",
   available: "#059669",
   locked: "#64748b",
-  mine: "#a78bfa",
+  mine: "#0891b2",
   sold: "#475569",
   selected: "#fb7185",
 } as const;
@@ -368,8 +368,8 @@ export function SeatCanvas({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
       >
-        <Layer>
-          {/* Background: gradient fill with subtle grid dots */}
+        <Layer listening={false}>
+          {/* Background: gradient fill with subtle grid */}
           <Rect
             name="canvas-bg"
             x={0}
@@ -392,6 +392,8 @@ export function SeatCanvas({
             color={colors.rowLabel}
             bg={colors.rowLabelBg}
           />
+        </Layer>
+        <Layer>
           {seats.map((seat) => (
             <SeatNode
               key={seat.id}
@@ -499,7 +501,7 @@ function seatWorldPos(seat: SeatWithZone, cols: number): { x: number; y: number 
   };
 }
 
-function BackgroundGrid({
+const BackgroundGrid = React.memo(function BackgroundGrid({
   width,
   height,
   color,
@@ -508,31 +510,33 @@ function BackgroundGrid({
   height: number;
   color: string;
 }) {
-  // Subtle dot grid for depth.
-  const dots = [];
+  // Use lines instead of hundreds of individual Circle nodes.
   const step = 32;
-  for (let x = step; x < width; x += step) {
-    for (let y = step; y < height; y += step) {
-      dots.push({ x, y });
+  const lines = useMemo(() => {
+    const vLines: number[][] = [];
+    const hLines: number[][] = [];
+    for (let x = step; x < width; x += step) {
+      vLines.push([x, 0, x, height]);
     }
-  }
+    for (let y = step; y < height; y += step) {
+      hLines.push([0, y, width, y]);
+    }
+    return { vLines, hLines };
+  }, [width, height]);
+
   return (
     <>
-      {dots.map((d, i) => (
-        <Circle
-          key={i}
-          x={d.x}
-          y={d.y}
-          radius={1}
-          fill={color}
-          listening={false}
-        />
+      {lines.vLines.map((pts, i) => (
+        <Line key={`v${i}`} points={pts} stroke={color} strokeWidth={0.5} listening={false} />
+      ))}
+      {lines.hLines.map((pts, i) => (
+        <Line key={`h${i}`} points={pts} stroke={color} strokeWidth={0.5} listening={false} />
       ))}
     </>
   );
-}
+});
 
-function StageElement({
+const StageElement = React.memo(function StageElement({
   width,
   colors,
 }: {
@@ -601,9 +605,9 @@ function StageElement({
       />
     </Group>
   );
-}
+});
 
-function RowLabels({
+const RowLabels = React.memo(function RowLabels({
   rows,
   cols,
   color,
@@ -690,7 +694,7 @@ function RowLabels({
       ))}
     </>
   );
-}
+});
 
 interface SeatNodeProps {
   seat: SeatWithZone;
@@ -700,14 +704,14 @@ interface SeatNodeProps {
   onClick?: (seat: SeatWithZone) => void;
 }
 
-function SeatNode({ seat, cols, visual, color, onClick }: SeatNodeProps) {
+const SeatNode = React.memo(function SeatNode({ seat, cols, visual, color, onClick }: SeatNodeProps) {
   const { x, y } = seatWorldPos(seat, cols);
   const fill =
     visual === "available" && color ? color : SEAT_COLORS[visual];
   const baseStroke = SEAT_STROKE[visual];
   const opacity = visual === "unassigned" ? 0.55 : visual === "sold" ? 0.55 : 1;
   const isEmphasized = visual === "mine" || visual === "selected";
-  const strokeWidth = isEmphasized ? 2 : 1;
+  const strokeWidth = isEmphasized ? 2.5 : 1;
   const clickable = onClick && visual !== "unassigned" && visual !== "sold";
 
   return (
@@ -723,7 +727,7 @@ function SeatNode({ seat, cols, visual, color, onClick }: SeatNodeProps) {
         if (stage) stage.container().style.cursor = "default";
       }}
     >
-      {/* Seat body */}
+      {/* Seat body — no shadow for performance */}
       <Rect
         x={x}
         y={y}
@@ -734,10 +738,7 @@ function SeatNode({ seat, cols, visual, color, onClick }: SeatNodeProps) {
         opacity={opacity}
         stroke={baseStroke}
         strokeWidth={strokeWidth}
-        shadowColor={isEmphasized ? fill : "black"}
-        shadowBlur={isEmphasized ? 8 : 2}
-        shadowOpacity={isEmphasized ? 0.55 : 0.18}
-        shadowOffsetY={isEmphasized ? 0 : 1}
+        perfectDrawEnabled={false}
       />
       {/* Top highlight sliver to suggest a cushion */}
       <Rect
@@ -749,6 +750,7 @@ function SeatNode({ seat, cols, visual, color, onClick }: SeatNodeProps) {
         fill="#ffffff"
         opacity={visual === "sold" || visual === "unassigned" ? 0.08 : 0.22}
         listening={false}
+        perfectDrawEnabled={false}
       />
       {/* Selected/mine ring for extra emphasis */}
       {isEmphasized && (
@@ -762,11 +764,12 @@ function SeatNode({ seat, cols, visual, color, onClick }: SeatNodeProps) {
           strokeWidth={1.5}
           opacity={0.55}
           listening={false}
+          perfectDrawEnabled={false}
         />
       )}
     </Group>
   );
-}
+});
 
 /* ─── Floating control pieces ─── */
 

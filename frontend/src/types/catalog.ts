@@ -39,6 +39,7 @@ export interface EventSummary {
   status: EventStatus;
   venue: Venue;
   category: string | null;
+  max_tickets_per_user: number;
   images: EventImage[];
 }
 
@@ -51,6 +52,7 @@ export interface EventCreatePayload {
   banner_url?: string | null;
   status?: EventStatus;
   category?: string | null;
+  max_tickets_per_user?: number;
 }
 
 export type EventUpdatePayload = Partial<EventCreatePayload>;

@@ -20,7 +20,7 @@ from app.schemas.booking import (
     BookingOut,
     PaymentOut,
 )
-from app.services.seat_service import BOOKING_TTL_SECONDS, LOCK_TTL_SECONDS, MAX_TICKETS_PER_USER
+from app.services.seat_service import BOOKING_TTL_SECONDS, LOCK_TTL_SECONDS
 from app.utils.enums import BookingStatus, SeatStatus, TicketStatus
 from app.models.ticket import Ticket
 
@@ -141,10 +141,13 @@ class BookingService:
         )
         ticket_count = (await self.db.execute(ticket_stmt)).scalar_one()
 
-        if len(seat_ids) + ticket_count > MAX_TICKETS_PER_USER:
+        event = await self.db.get(Event, event_id)
+        max_tickets = event.max_tickets_per_user if event else 8
+
+        if len(seat_ids) + ticket_count > max_tickets:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
-                f"LIMIT_REACHED: You can only own a maximum of {MAX_TICKETS_PER_USER} tickets for this event.",
+                f"LIMIT_REACHED: You can only own a maximum of {max_tickets} tickets for this event.",
             )
 
         # --- Safety net: clean up stale BookingItems for these seats ---

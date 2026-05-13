@@ -10,6 +10,7 @@ import {
   type FilterValues,
 } from "@/components/admin/AdminFilterModal";
 import { Button } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Input } from "@/components/ui/Input";
 import { Pagination } from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
@@ -39,6 +40,7 @@ export function UsersPage() {
   });
   const [error, setError] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   
   const avatarRef = useRef<HTMLInputElement>(null);
 
@@ -294,7 +296,7 @@ export function UsersPage() {
                       <div className="flex items-center justify-end gap-2">
                         <Button variant="secondary" onClick={() => openEdit(u)}>Edit</Button>
                         <Button variant="ghost"
-                          onClick={() => { if (confirm(`Delete "${u.full_name}"?`)) removeMut.mutate(u.id); }}>
+                          onClick={() => setDeleteConfirm({ id: u.id, name: u.full_name })}>
                           Delete
                         </Button>
                       </div>
@@ -392,6 +394,18 @@ export function UsersPage() {
 
       <input ref={avatarRef} type="file" accept="image/*" className="hidden"
         onChange={onAvatarFileChange} />
+
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        title="Confirm Delete"
+        message={`Are you sure you want to delete "${deleteConfirm?.name}"? This action cannot be undone.`}
+        loading={removeMut.isPending}
+        onConfirm={() => {
+          if (!deleteConfirm) return;
+          removeMut.mutate(deleteConfirm.id, { onSettled: () => setDeleteConfirm(null) });
+        }}
+      />
     </div>
   );
 }

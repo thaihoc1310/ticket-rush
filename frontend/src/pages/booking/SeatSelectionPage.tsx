@@ -532,7 +532,7 @@ function CustomerLegend({ zones }: { zones: Zone[] }) {
       style={{ color: "var(--text-secondary)" }}
     >
       <LegendSwatch color="#475569" label="Unassigned" />
-      <LegendSwatch color="#8b5cf6" label="Your pick" />
+      <LegendSwatch color="#06b6d4" label="Your pick" />
       <LegendSwatch color="#94a3b8" label="Held" />
       <LegendSwatch color="#64748b" label="Sold" />
       <LegendSwatch color="#f43f5e" label="Selecting" />

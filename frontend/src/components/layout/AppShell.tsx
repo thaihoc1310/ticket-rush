@@ -45,13 +45,15 @@ export function AppShell() {
 
           {/* Navigation & User Controls */}
           <div className="flex flex-wrap items-center gap-3">
-            {/* System Status LED */}
-            <div className="hidden items-center gap-2 rounded-full bg-[var(--muted)] px-3 py-1.5 sm:flex">
-              <LED status="success" size="sm" />
-              <span className="font-mono text-[0.625rem] font-bold uppercase tracking-wider text-[var(--text-muted)]">
-                System Online
-              </span>
-            </div>
+            {/* System Status LED — admin only */}
+            {user?.role === "ADMIN" && (
+              <div className="hidden items-center gap-2 rounded-full bg-[var(--muted)] px-3 py-1.5 sm:flex">
+                <LED status="success" size="sm" />
+                <span className="font-mono text-[0.625rem] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                  System Online
+                </span>
+              </div>
+            )}
 
             {status === "authenticated" && user ? (
               <>

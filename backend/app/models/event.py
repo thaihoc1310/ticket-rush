@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -38,6 +38,9 @@ class Event(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         index=True,
     )
     category: Mapped[str | None] = mapped_column(String(60), nullable=True, index=True)
+    max_tickets_per_user: Mapped[int] = mapped_column(
+        Integer, default=8, server_default="8", nullable=False
+    )
 
     venue: Mapped["Venue"] = relationship(back_populates="events", lazy="joined")
     zones: Mapped[list["Zone"]] = relationship(

@@ -10,6 +10,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.models.event import Event
 from app.models.seat import Seat
 from app.models.ticket import Ticket
 from app.models.booking import Booking, BookingItem
@@ -25,8 +26,6 @@ BOOKING_TTL_SECONDS = 60  # 1 min for demo (production: 10 * 60)
 LOCK_TTL_SECONDS = SEAT_LOCK_TTL_SECONDS
 # Redis micro-lock for the lock operation itself (filters 99.9% of contention).
 REDIS_GUARD_TTL = 5
-
-MAX_TICKETS_PER_USER = 8
 
 
 def _seat_channel(event_id: UUID) -> str:
@@ -141,11 +140,15 @@ class SeatService:
             )
             ticket_count = (await self.db.execute(ticket_stmt)).scalar_one()
 
-            if locked_count + ticket_count >= MAX_TICKETS_PER_USER:
+            # Fetch event to get the configured max tickets limit
+            event = await self.db.get(Event, seat.event_id)
+            max_tickets = event.max_tickets_per_user if event else 8
+
+            if locked_count + ticket_count >= max_tickets:
                 await self.db.rollback()
                 raise HTTPException(
                     status.HTTP_400_BAD_REQUEST,
-                    f"LIMIT_REACHED: You can only own a maximum of {MAX_TICKETS_PER_USER} tickets for this event (including currently selected seats and purchased tickets).",
+                    f"LIMIT_REACHED: You can only own a maximum of {max_tickets} tickets for this event (including currently selected seats and purchased tickets).",
                 )
 
             seat.status = SeatStatus.LOCKED

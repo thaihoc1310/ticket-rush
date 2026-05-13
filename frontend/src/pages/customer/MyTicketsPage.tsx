@@ -41,10 +41,16 @@ export function MyTicketsPage() {
       groups.get(ticket.event_id)!.tickets.push(ticket);
     }
 
-    return Array.from(groups.entries()).map(([event_id, info]) => ({
-      event_id,
-      ...info,
-    }));
+    return Array.from(groups.entries())
+      .map(([event_id, info]) => ({
+        event_id,
+        ...info,
+      }))
+      .sort((a, b) => {
+        const maxA = Math.max(...a.tickets.map((t) => new Date(t.issued_at).getTime()));
+        const maxB = Math.max(...b.tickets.map((t) => new Date(t.issued_at).getTime()));
+        return maxB - maxA;
+      });
   }, [data]);
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());

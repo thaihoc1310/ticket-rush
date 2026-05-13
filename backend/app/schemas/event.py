@@ -25,6 +25,7 @@ class EventBase(BaseModel):
     banner_url: str | None = Field(default=None, max_length=500)
     status: EventStatus = EventStatus.DRAFT
     category: str | None = Field(default=None, max_length=60)
+    max_tickets_per_user: int = Field(default=8, ge=1, le=50)
 
 
 class EventCreate(EventBase):
@@ -40,6 +41,7 @@ class EventUpdate(BaseModel):
     status: EventStatus | None = None
     venue_id: UUID | None = None
     category: str | None = Field(default=None, max_length=60)
+    max_tickets_per_user: int | None = Field(default=None, ge=1, le=50)
     # grid dims are immutable after creation (seats are already generated)
 
 
@@ -53,6 +55,7 @@ class EventSummary(BaseModel):
     status: EventStatus
     venue: VenueOut
     category: str | None = None
+    max_tickets_per_user: int = 8
     images: list[EventImageOut] = []
 
     class Config:

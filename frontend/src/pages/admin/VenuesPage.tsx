@@ -10,6 +10,7 @@ import {
   type FilterValues,
 } from "@/components/admin/AdminFilterModal";
 import { Button } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Pagination } from "@/components/ui/Pagination";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
@@ -32,6 +33,7 @@ export function VenuesPage() {
   const [editingVenue, setEditingVenue] = useState<Venue | null>(null);
   const [form, setForm] = useState<VenueCreatePayload>(EMPTY);
   const [error, setError] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
   // ── Search & Filter ──
   const [search, setSearch] = useState("");
@@ -227,7 +229,7 @@ export function VenuesPage() {
                       <Button variant="secondary" onClick={() => openEdit(v)}>Edit</Button>
                       <Button
                         variant="ghost"
-                        onClick={() => { if (confirm(`Delete venue "${v.name}"?`)) remove.mutate(v.id); }}
+                        onClick={() => setDeleteConfirm({ id: v.id, name: v.name })}
                       >
                         Delete
                       </Button>
@@ -272,6 +274,18 @@ export function VenuesPage() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        title="Confirm Delete"
+        message={`Are you sure you want to delete venue "${deleteConfirm?.name}"? This action cannot be undone.`}
+        loading={remove.isPending}
+        onConfirm={() => {
+          if (!deleteConfirm) return;
+          remove.mutate(deleteConfirm.id, { onSettled: () => setDeleteConfirm(null) });
+        }}
+      />
     </div>
   );
 }

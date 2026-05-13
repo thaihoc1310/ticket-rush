@@ -11,6 +11,7 @@ import {
   type FilterValues,
 } from "@/components/admin/AdminFilterModal";
 import { Button } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Input } from "@/components/ui/Input";
 import { Pagination } from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
@@ -47,6 +48,7 @@ const emptyForm = (): EventCreatePayload => ({
   banner_url: "",
   status: "DRAFT",
   category: "",
+  max_tickets_per_user: 8,
 });
 
 export function EventsPage() {
@@ -57,8 +59,8 @@ export function EventsPage() {
   const [galleryEvent, setGalleryEvent] = useState<EventSummary | null>(null);
   const [form, setForm] = useState(emptyForm());
   const [error, setError] = useState<string | null>(null);
-  const [statusConfirm, setStatusConfirm] = useState<{ id: string; title: string; status: EventStatus } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ type: "event" | "image"; id: string; name: string } | null>(null);
 
 
 
@@ -97,14 +99,6 @@ export function EventsPage() {
       setError(err instanceof ApiError ? err.message : "Failed to update event"),
   });
 
-  const updateStatus = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: EventStatus }) =>
-      eventApi.update(id, { status }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin", "events"] });
-      qc.invalidateQueries({ queryKey: ["events"] });
-    },
-  });
 
   const remove = useMutation({
     mutationFn: (id: string) => eventApi.remove(id),
@@ -157,6 +151,7 @@ export function EventsPage() {
       banner_url: e.banner_url ?? "",
       status: e.status,
       category: e.category ?? "",
+      max_tickets_per_user: e.max_tickets_per_user ?? 8,
     });
     setError(null);
     setModalOpen(true);
@@ -188,6 +183,7 @@ export function EventsPage() {
       banner_url: form.banner_url || null,
       status: form.status,
       category: form.category || null,
+      max_tickets_per_user: form.max_tickets_per_user ?? 8,
     };
     if (editingEvent) {
       updateMut.mutate({ id: editingEvent.id, payload });
@@ -295,48 +291,41 @@ export function EventsPage() {
                 <tr className="text-xs uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
                   <th className="px-6 py-3">Title</th>
                   <th className="px-6 py-3">Venue</th>
-                  <th className="px-6 py-3">Date</th>
-                  <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3" />
+                  <th className="px-6 py-3" style={{ whiteSpace: "nowrap" }}>Date</th>
+                  <th className="px-4 py-3">Manage</th>
+                  <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody>
                 {paginatedEvents.map((e) => (
                   <tr key={e.id} className="border-t" style={{ borderColor: "var(--border-primary)" }}>
-                    <td className="px-6 py-3 font-medium" style={{ color: "var(--text-primary)" }}>{e.title}</td>
-                    <td className="px-6 py-3" style={{ color: "var(--text-secondary)" }}>
-                      {e.venue.name} · {e.venue.city}
-                      <span className="block text-xs" style={{ color: "var(--text-muted)" }}>
-                        {e.venue.grid_rows} x {e.venue.grid_cols} seats
-                      </span>
-                    </td>
-                    <td className="px-6 py-3" style={{ color: "var(--text-secondary)" }}>
-                      {formatDateTime(e.event_date)}
-                    </td>
-                    <td className="px-6 py-3">
-                      <select
-                        value={e.status}
-                        onChange={(ev) => {
-                          setStatusConfirm({ id: e.id, title: e.title, status: ev.target.value as EventStatus });
-                        }}
-                        className="rounded-md border px-2 py-1 text-xs"
+                    <td className="px-6 py-4" style={{ color: "var(--text-primary)" }}>
+                      <div className="font-medium">{e.title}</div>
+                      <span
+                        className="mt-1 inline-block rounded-full px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wider"
                         style={{
-                          borderColor: "var(--border-primary)",
-                          background: "var(--bg-tertiary)",
-                          color: "var(--text-primary)",
+                          background: e.status === "PUBLISHED" ? "var(--success-bg, rgba(34,197,94,0.15))" : e.status === "DRAFT" ? "var(--warning-bg, rgba(234,179,8,0.15))" : "var(--muted)",
+                          color: e.status === "PUBLISHED" ? "var(--success, #22c55e)" : e.status === "DRAFT" ? "var(--warning, #eab308)" : "var(--text-muted)",
                         }}
                       >
-                        {STATUSES.map((s) => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                      </select>
+                        {e.status}
+                      </span>
                     </td>
-                    <td className="px-6 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="px-6 py-4" style={{ color: "var(--text-secondary)" }}>
+                      {e.venue.name} · {e.venue.city}
+                      <span className="block text-xs" style={{ color: "var(--text-muted)" }}>
+                        {e.venue.grid_rows} × {e.venue.grid_cols} seats
+                      </span>
+                    </td>
+                    <td className="px-6 py-4" style={{ color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                      {formatDateTime(e.event_date)}
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex flex-col gap-2">
                         <button
                           type="button"
                           onClick={() => openGallery(e)}
-                          className="text-sm font-medium transition hover:opacity-80"
+                          className="text-sm font-medium transition hover:opacity-80 text-left cursor-pointer"
                           style={{ color: "var(--accent)" }}
                         >
                           Gallery
@@ -355,10 +344,14 @@ export function EventsPage() {
                         >
                           Seats
                         </Link>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 text-right" style={{ whiteSpace: "nowrap" }}>
+                      <div className="flex items-center justify-end gap-2">
                         <Button variant="secondary" onClick={() => openEdit(e)}>Edit</Button>
                         <Button
                           variant="ghost"
-                          onClick={() => { if (confirm(`Delete "${e.title}"?`)) remove.mutate(e.id); }}
+                          onClick={() => setDeleteConfirm({ type: "event", id: e.id, name: e.title })}
                         >
                           Delete
                         </Button>
@@ -448,6 +441,17 @@ export function EventsPage() {
               ))}
             </select>
           </div>
+          <Input
+            label="Max tickets / user"
+            type="number"
+            required
+            value={String(form.max_tickets_per_user ?? 8)}
+            onChange={(e) =>
+              setForm({ ...form, max_tickets_per_user: Math.max(1, Math.min(50, Number(e.target.value) || 1)) })
+            }
+            min={1}
+            max={50}
+          />
           <div className="sm:col-span-2 flex flex-col gap-1.5">
             <label className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>Description</label>
             <textarea
@@ -518,7 +522,7 @@ export function EventsPage() {
                       type="button"
                       className="gallery-action-btn delete"
                       title="Delete"
-                      onClick={() => { if (confirm("Delete this image?")) deleteImage.mutate(img.id); }}
+                      onClick={() => setDeleteConfirm({ type: "image", id: img.id, name: "this image" })}
                     >
                       ✕
                     </button>
@@ -531,30 +535,21 @@ export function EventsPage() {
         </div>
       </Modal>
 
-      {/* Confirmation Modal */}
-      <Modal open={!!statusConfirm} onClose={() => setStatusConfirm(null)} title="Confirm Status Change" maxWidth="28rem">
-        <div className="flex flex-col gap-4">
-          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-            Are you sure you want to change the status of <strong>{statusConfirm?.title}</strong> to <strong>{statusConfirm?.status}</strong>?
-          </p>
-          <div className="flex justify-end gap-3 mt-4">
-            <Button variant="secondary" onClick={() => setStatusConfirm(null)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                if (statusConfirm) {
-                  updateStatus.mutate({ id: statusConfirm.id, status: statusConfirm.status });
-                  setStatusConfirm(null);
-                }
-              }}
-              loading={updateStatus.isPending}
-            >
-              Confirm
-            </Button>
-          </div>
-        </div>
-      </Modal>
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        title="Confirm Delete"
+        message={`Are you sure you want to delete ${deleteConfirm?.type === "event" ? `"${deleteConfirm?.name}"` : deleteConfirm?.name ?? ""}? This action cannot be undone.`}
+        loading={remove.isPending || deleteImage.isPending}
+        onConfirm={() => {
+          if (!deleteConfirm) return;
+          if (deleteConfirm.type === "event") {
+            remove.mutate(deleteConfirm.id, { onSettled: () => setDeleteConfirm(null) });
+          } else {
+            deleteImage.mutate(deleteConfirm.id, { onSettled: () => setDeleteConfirm(null) });
+          }
+        }}
+      />
 
     </div>
   );
